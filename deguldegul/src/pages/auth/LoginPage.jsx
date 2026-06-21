@@ -1,15 +1,35 @@
+import { Container, Button, Typography, Stack } from "@mui/material";
+import { supabase } from "../../services/supabase";
+
 function LoginPage() {
+  const handleKakaoLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "kakao",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
   return (
-    <div>
-      <h1>데굴데굴</h1>
+    <Container maxWidth="sm">
+      <Stack spacing={3} sx={{ mt: 15 }}>
+        <Typography
+          variant="h4"
+          align="center"
+        >
+          볼링클럽
+        </Typography>
 
-      <input placeholder="이메일" />
-      <input placeholder="비밀번호" />
-
-      <button>로그인</button>
-
-      <button>회원가입</button>
-    </div>
+        <Button
+          variant="contained"
+          size="large"
+          onClick={handleKakaoLogin}
+        >
+          카카오로 시작하기
+        </Button>
+      </Stack>
+    </Container>
   );
 }
 
