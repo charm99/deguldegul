@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-
+ 
 import {
   Box,
   BottomNavigation,
