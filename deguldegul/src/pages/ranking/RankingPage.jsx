@@ -36,19 +36,19 @@ const monthlyAvgData = [
 const recentGames = [
   {
     date: "2026.06.21",
-    center: "강남 볼링장",
+    center: "볼원 볼링장",
     games: "3게임",
     scores: "213 / 187 / 162",
   },
   {
     date: "2026.06.14",
-    center: "구로 ABC볼링장",
+    center: "레인보우볼링장",
     games: "2게임",
     scores: "179 / 201",
   },
   {
     date: "2026.06.07",
-    center: "신도림 볼링센터",
+    center: "양산킴스 볼링센터",
     games: "3게임",
     scores: "198 / 187 / 142",
   },

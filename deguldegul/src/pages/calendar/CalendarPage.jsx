@@ -24,12 +24,12 @@ const scoreData = [
   {
     date: "2026-06-21",
     scores: [213, 187, 162],
-    center: "강남 볼링장",
+    center: "볼원 볼링장",
   },
   {
     date: "2026-06-28",
     scores: [179, 201],
-    center: "구로 ABC볼링장",
+    center: "레인보우볼링장",
   },
 ];
 
@@ -38,7 +38,7 @@ const meetingData = [
     date: "2026-06-21",
     time: "19:00",
     title: "정기전",
-    center: "강남 볼링장",
+    center: "볼원 볼링장",
     attend: "12/20",
     type: "REGULAR",
   },
@@ -46,7 +46,7 @@ const meetingData = [
     date: "2026-06-28",
     time: "19:00",
     title: "번개모임",
-    center: "구로 ABC볼링장",
+    center: "레인보우볼링장",
     attend: "6/10",
     type: "FLASH",
   },
@@ -54,7 +54,7 @@ const meetingData = [
     date: "2026-07-05",
     time: "19:00",
     title: "정기전",
-    center: "신도림 볼링센터",
+    center: "양산킴스볼링센터",
     attend: "14/20",
     type: "REGULAR",
   },
@@ -63,8 +63,8 @@ const meetingData = [
 const eventData = [
   {
     date: "2026-06-24",
-    title: "ABC볼링장 이벤트",
-    center: "구로 ABC볼링장",
+    title: "렌보 벙",
+    center: "레인보우볼링장",
   },
 ];
 
@@ -422,8 +422,9 @@ function CalendarPage() {
         color="primary"
         sx={{
           position: "fixed",
-          bottom: 88,
-          right: "calc(50% - 220px)",
+          bottom: "calc(88px + env(safe-area-inset-bottom))",
+          right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
+          zIndex: 1200,
         }}
       >
         <AddIcon />

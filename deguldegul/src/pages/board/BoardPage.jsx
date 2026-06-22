@@ -23,9 +23,9 @@ function BoardPage() {
         ["[공지] 회비 납부 안내", "2024.06.10"],
       ]
     : [
-        ["오늘 번개 가능하신 분?", "김철수"],
-        ["볼 추천 부탁드립니다!", "이영희"],
-        ["주말에 연습 같이 하실 분?", "박민수"],
+        ["오늘 번개 가능하신 분?", "임창민"],
+        ["볼 추천 부탁드립니다!", "박성근"],
+        ["주말에 연습 같이 하실 분?", "임창민"],
       ];
 
   return (
@@ -61,8 +61,9 @@ function BoardPage() {
         color="primary"
         sx={{
           position: "fixed",
-          bottom: 88,
-          right: "calc(50% - 220px)",
+          bottom: "calc(88px + env(safe-area-inset-bottom))",
+          right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
+          zIndex: 1200,
         }}
       >
         <EditIcon />

@@ -55,7 +55,7 @@ function HomePage() {
           </Typography>
 
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            강남 볼링장
+            볼원 볼링장
           </Typography>
 
           <Stack direction="row" spacing={-0.5} sx={{ mt: 2 }}>
