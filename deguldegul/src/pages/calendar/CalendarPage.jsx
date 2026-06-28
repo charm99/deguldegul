@@ -26,6 +26,7 @@ import ScoreDialog from "./components/ScoreDialog";
 import ScoreMeetingCard from "./components/ScoreMeetingCard";
 import VoteDialog from "./components/VoteDialog";
 import BattleMatchDialog from "./components/BattleMatchDialog";
+import AttendanceListDialog from "./components/AttendanceListDialog";
 
 import {
   WEEK_LABELS,
@@ -77,6 +78,10 @@ function CalendarPage() {
   const [battleDialogOpen, setBattleDialogOpen] = useState(false);
   const [battleMeeting, setBattleMeeting] = useState(null);
   const [battleMatches, setBattleMatches] = useState([]);
+
+  const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+  const [attendanceMeeting, setAttendanceMeeting] = useState(null);
+  const [attendanceList, setAttendanceList] = useState([]);
 
   const monthTitle = `${currentDate.getFullYear()}년 ${String(
     currentDate.getMonth() + 1
@@ -646,6 +651,36 @@ function CalendarPage() {
       setBattleMatches(data || []);
       setBattleDialogOpen(true);
     };
+    const openAttendanceListDialog = async (meeting) => {
+      setAttendanceMeeting(meeting);
+
+      const { data, error } = await supabase
+        .from("degul_attendance")
+        .select(`
+          meeting_id,
+          user_id,
+          attendance_tp,
+          battle_join_yn,
+          memo,
+          updated_at,
+          user:user_id (
+            id,
+            name,
+            nickname
+          )
+        `)
+        .eq("meeting_id", meeting.meeting_id)
+        .order("attendance_tp", { ascending: true })
+        .order("updated_at", { ascending: true });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setAttendanceList(data || []);
+      setAttendanceDialogOpen(true);
+    };
 
     if (tab === 2) {
       return <EmptyState text="이벤트 기능은 추후 구현 예정입니다." />;
@@ -675,6 +710,7 @@ function CalendarPage() {
                 onBattleClick={() => openBattleDialog(meeting)}
                 onCloseFlashClick={() => closeFlashMeeting(meeting)}
                 onDeleteFlashClick={() => deleteFlashMeeting(meeting)}
+                onAttendanceListClick={() => openAttendanceListDialog(meeting)}
               />
             );
           })
@@ -875,6 +911,12 @@ function CalendarPage() {
         meeting={battleMeeting}
         matches={battleMatches}
         onClose={() => setBattleDialogOpen(false)}
+      />
+      <AttendanceListDialog
+        open={attendanceDialogOpen}
+        meeting={attendanceMeeting}
+        attendances={attendanceList}
+        onClose={() => setAttendanceDialogOpen(false)}
       />
     </Box>
   );

@@ -37,6 +37,7 @@ function MeetingCard({
   onBattleClick,
   onCloseFlashClick,
   onDeleteFlashClick,
+  onAttendanceListClick,
 }) {
   const [showAddress, setShowAddress] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -200,47 +201,64 @@ function MeetingCard({
 
           <Stack spacing={1}>
             <Button
-              fullWidth
-              variant="contained"
-              onClick={onVoteClick}
-              disabled={meeting.status !== "OPN"}
-              sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
+                fullWidth
+                variant="contained"
+                onClick={onVoteClick}
+                disabled={meeting.status !== "OPN"}
+                sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
             >
               {attendance ? "참석 정보 수정" : "참석 투표"}
             </Button>
 
-            {isFlashOwner && (
-              <Button
-                fullWidth
-                variant="outlined"
-                color="warning"
-                onClick={onCloseFlashClick}
-                sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
-              >
-                번개 마감/대진생성
-              </Button>
-            )}
-
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={onBattleClick}
-              sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
+            <Stack
+              direction="row"
+              spacing={0.5}
+              justifyContent="center"
+              flexWrap="wrap"
+              useFlexGap
             >
-              대진표 보기
-            </Button>
-
-            {canDeleteFlash && (
               <Button
-                fullWidth
-                variant="outlined"
-                color="error"
-                onClick={onDeleteFlashClick}
-                sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
+                size="small"
+                variant="text"
+                onClick={onAttendanceListClick}
+                sx={{ fontWeight: 800 }}
               >
-                번개 삭제
+                참석자
               </Button>
-            )}
+
+              <Button
+                size="small"
+                variant="text"
+                onClick={onBattleClick}
+                sx={{ fontWeight: 800 }}
+              >
+                대진표
+              </Button>
+
+              {isFlashOwner && (
+                <Button
+                  size="small"
+                  variant="text"
+                  color="warning"
+                  onClick={onCloseFlashClick}
+                  sx={{ fontWeight: 800 }}
+                >
+                  마감
+                </Button>
+              )}
+
+              {canDeleteFlash && (
+                <Button
+                  size="small"
+                  variant="text"
+                  color="error"
+                  onClick={onDeleteFlashClick}
+                  sx={{ fontWeight: 800 }}
+                >
+                  삭제
+                </Button>
+              )}
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
