@@ -82,6 +82,7 @@ function MeetingManagePage() {
           center_nm
         )
       `)
+      .eq("use_yn", "Y")
       .order("meeting_dt", { ascending: true });
 
     if (error) {
