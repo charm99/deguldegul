@@ -1,258 +1,671 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
+  Alert,
   Box,
-  Typography,
-  Tabs,
-  Tab,
-  Stack,
-  Card,
-  CardContent,
-  IconButton,
   Fab,
-  Divider,
-  Chip,
+  IconButton,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
 } from "@mui/material";
 
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AddIcon from "@mui/icons-material/Add";
 
-const WEEK_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+import { supabase } from "../../services/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 
-const scoreData = [
-  {
-    date: "2026-06-21",
-    scores: [213, 187, 162],
-    center: "볼원 볼링장",
-  },
-  {
-    date: "2026-06-28",
-    scores: [179, 201],
-    center: "레인보우볼링장",
-  },
-];
+import EmptyState from "./components/EmptyState";
+import FlashMeetingDialog from "./components/FlashMeetingDialog";
+import Legend from "./components/Legend";
+import MeetingCard from "./components/MeetingCard";
+import ScoreDialog from "./components/ScoreDialog";
+import ScoreMeetingCard from "./components/ScoreMeetingCard";
+import VoteDialog from "./components/VoteDialog";
+import BattleMatchDialog from "./components/BattleMatchDialog";
 
-const meetingData = [
-  {
-    date: "2026-06-21",
-    time: "19:00",
-    title: "정기전",
-    center: "볼원 볼링장",
-    attend: "12/20",
-    type: "REGULAR",
-  },
-  {
-    date: "2026-06-28",
-    time: "19:00",
-    title: "번개모임",
-    center: "레인보우볼링장",
-    attend: "6/10",
-    type: "FLASH",
-  },
-  {
-    date: "2026-07-05",
-    time: "19:00",
-    title: "정기전",
-    center: "양산킴스볼링센터",
-    attend: "14/20",
-    type: "REGULAR",
-  },
-];
+import {
+  WEEK_LABELS,
+  formatDateKey,
+  getCalendarDays,
+  getDateKeyFromValue,
+  toKoreanDate,
+} from "./utils/calendarUtils";
 
-const eventData = [
-  {
-    date: "2026-06-24",
-    title: "렌보 벙",
-    center: "레인보우볼링장",
-  },
-];
-
-function formatDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getCalendarDays(currentDate) {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const firstDate = new Date(year, month, 1);
-  const lastDate = new Date(year, month + 1, 0);
-
-  const startDay = firstDate.getDay();
-  const lastDay = lastDate.getDate();
-  const prevLastDate = new Date(year, month, 0).getDate();
-
-  const days = [];
-
-  for (let i = startDay - 1; i >= 0; i--) {
-    const day = prevLastDate - i;
-    days.push({
-      date: new Date(year, month - 1, day),
-      day,
-      currentMonth: false,
-    });
-  }
-
-  for (let day = 1; day <= lastDay; day++) {
-    days.push({
-      date: new Date(year, month, day),
-      day,
-      currentMonth: true,
-    });
-  }
-
-  const nextDays = 35 - days.length;
-
-  for (let day = 1; day <= nextDays; day++) {
-    days.push({
-      date: new Date(year, month + 1, day),
-      day,
-      currentMonth: false,
-    });
-  }
-
-  return days;
-}
+const EMPTY_FLASH_FORM = {
+  meeting_nm: "",
+  center_id: "",
+  meeting_dt: "",
+  max_member_cnt: "",
+  memo: "",
+};
 
 function CalendarPage() {
+  const { profile } = useAuth();
+
   const [tab, setTab] = useState(1);
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 21));
-  const [selectedDate, setSelectedDate] = useState("2026-06-21");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(formatDateKey(new Date()));
+
+  const [meetings, setMeetings] = useState([]);
+  const [centers, setCenters] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [myAttendances, setMyAttendances] = useState([]);
+  const [battleEntries, setBattleEntries] = useState([]);
+  const [message, setMessage] = useState("");
+
+  const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [scoreInputs, setScoreInputs] = useState([]);
+
+  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
+  const [voteMeeting, setVoteMeeting] = useState(null);
+  const [voteForm, setVoteForm] = useState({
+    attendance_tp: "ATD",
+    battle_join_yn: "N",
+    memo: "",
+  });
+
+  const [flashDialogOpen, setFlashDialogOpen] = useState(false);
+  const [flashForm, setFlashForm] = useState(EMPTY_FLASH_FORM);
 
   const calendarDays = useMemo(() => getCalendarDays(currentDate), [currentDate]);
+
+  const [battleDialogOpen, setBattleDialogOpen] = useState(false);
+  const [battleMeeting, setBattleMeeting] = useState(null);
+  const [battleMatches, setBattleMatches] = useState([]);
 
   const monthTitle = `${currentDate.getFullYear()}년 ${String(
     currentDate.getMonth() + 1
   ).padStart(2, "0")}월`;
 
-  const selectedScore = scoreData.find((item) => item.date === selectedDate);
-
-  const selectedMeetings = meetingData.filter(
-    (item) => item.date === selectedDate
+  const selectedMeetings = meetings.filter(
+    (meeting) => getDateKeyFromValue(meeting.meeting_dt) === selectedDate
   );
 
-  const selectedEvents = eventData.filter((item) => item.date === selectedDate);
+  const scoreTargetMeetings = selectedMeetings.filter((meeting) =>
+    myAttendances.some(
+      (attendance) =>
+        attendance.meeting_id === meeting.meeting_id &&
+        ["ATD", "LAT"].includes(attendance.attendance_tp)
+    )
+  );
 
-  const upcomingMeetings = meetingData.filter((item) => item.date !== selectedDate);
+  const upcomingMeetings = meetings.filter(
+    (meeting) => getDateKeyFromValue(meeting.meeting_dt) > selectedDate
+  );
+
+  const loadCenters = async () => {
+    const { data, error } = await supabase
+      .from("degul_center")
+      .select("center_id, center_nm")
+      .eq("use_yn", "Y")
+      .order("center_nm");
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setCenters(data || []);
+  };
+
+  const loadMeetings = async () => {
+    setMessage("");
+
+    const monthStart = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+
+    const monthEnd = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      1
+    );
+
+    const { data, error } = await supabase
+      .from("degul_meeting")
+      .select(`
+        meeting_id,
+        meeting_nm,
+        meeting_tp,
+        meeting_dt,
+        max_member_cnt,
+        memo,
+        status,
+        created_by,
+        center:center_id (
+          center_nm,
+          address,
+          bank_nm,
+          account_no,
+          account_holder,
+          game_cost
+        )
+      `)
+      .neq("status", "CNL")
+      .gte("meeting_dt", monthStart.toISOString())
+      .lt("meeting_dt", monthEnd.toISOString())
+      .order("meeting_dt", { ascending: true });
+
+    if (error) {
+      setMessage(error.message || "모임 조회 중 오류가 발생했습니다.");
+      return;
+    }
+
+    setMeetings(data || []);
+  };
+
+  const loadScores = async () => {
+    if (!profile?.id) return;
+
+    const meetingIds = meetings.map((meeting) => meeting.meeting_id);
+
+    if (meetingIds.length === 0) {
+      setScores([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("degul_score")
+      .select("*")
+      .eq("user_id", profile.id)
+      .in("meeting_id", meetingIds)
+      .order("game_no", { ascending: true });
+
+    if (error) {
+      setMessage(error.message || "점수 조회 중 오류가 발생했습니다.");
+      return;
+    }
+
+    setScores(data || []);
+  };
+
+  const loadMyAttendances = async () => {
+    if (!profile?.id) return;
+
+    const meetingIds = meetings.map((meeting) => meeting.meeting_id);
+
+    if (meetingIds.length === 0) {
+      setMyAttendances([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("degul_attendance")
+      .select("*")
+      .eq("user_id", profile.id)
+      .in("meeting_id", meetingIds);
+
+    if (error) {
+      setMessage(error.message || "내 참석정보 조회 중 오류가 발생했습니다.");
+      return;
+    }
+
+    setMyAttendances(data || []);
+  };
+
+  const loadBattleEntries = async () => {
+    const meetingIds = meetings.map((meeting) => meeting.meeting_id);
+
+    if (meetingIds.length === 0) {
+      setBattleEntries([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("degul_attendance")
+      .select(`
+        meeting_id,
+        user_id,
+        battle_join_yn,
+        user:user_id (
+          id,
+          name,
+          nickname
+        )
+      `)
+      .eq("battle_join_yn", "Y")
+      .in("meeting_id", meetingIds);
+
+    if (error) {
+      console.error(error);
+      setBattleEntries([]);
+      return;
+    }
+
+    setBattleEntries(data || []);
+  };
+
+  useEffect(() => {
+    loadCenters();
+  }, []);
+
+  useEffect(() => {
+    loadMeetings();
+  }, [currentDate]);
+
+  useEffect(() => {
+    loadScores();
+    loadMyAttendances();
+    loadBattleEntries();
+  }, [meetings, profile?.id]);
 
   const moveMonth = (amount) => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + amount, 1)
+    const nextDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + amount,
+      1
     );
+
+    setCurrentDate(nextDate);
+    setSelectedDate(formatDateKey(nextDate));
   };
 
   const getDayMarks = (dateKey) => {
+    const hasMeeting = meetings.some(
+      (meeting) => getDateKeyFromValue(meeting.meeting_dt) === dateKey
+    );
+
+    const hasScore = scores.some((score) => {
+      const meeting = meetings.find((item) => item.meeting_id === score.meeting_id);
+      return meeting && getDateKeyFromValue(meeting.meeting_dt) === dateKey;
+    });
+
     const marks = [];
-
-    if (scoreData.some((item) => item.date === dateKey)) {
-      marks.push("score");
-    }
-
-    if (meetingData.some((item) => item.date === dateKey)) {
-      marks.push("meeting");
-    }
-
-    if (eventData.some((item) => item.date === dateKey)) {
-      marks.push("event");
-    }
+    if (hasScore) marks.push("score");
+    if (hasMeeting) marks.push("meeting");
 
     return marks;
   };
 
+  const openScoreDialog = (meeting) => {
+    setSelectedMeeting(meeting);
+
+    const savedScores = scores
+      .filter((score) => score.meeting_id === meeting.meeting_id)
+      .sort((a, b) => a.game_no - b.game_no);
+
+    if (savedScores.length > 0) {
+      setScoreInputs(
+        savedScores.map((item) => ({
+          game_no: item.game_no,
+          score: String(item.score),
+        }))
+      );
+    } else {
+      const defaultGameCount = meeting.meeting_tp === "REG" ? 4 : 3;
+
+      setScoreInputs(
+        Array.from({ length: defaultGameCount }, (_, index) => ({
+          game_no: index + 1,
+          score: "",
+        }))
+      );
+    }
+
+    setScoreDialogOpen(true);
+  };
+
+  const openVoteDialog = (meeting) => {
+    const saved = myAttendances.find(
+      (attendance) => attendance.meeting_id === meeting.meeting_id
+    );
+
+    setVoteMeeting(meeting);
+    setVoteForm({
+      attendance_tp: saved?.attendance_tp || "ATD",
+      battle_join_yn: saved?.battle_join_yn || "N",
+      memo: saved?.memo || "",
+    });
+    setVoteDialogOpen(true);
+  };
+
+  const saveVote = async () => {
+    if (!voteMeeting || !profile?.id) return;
+
+    if (
+      ["PND", "ABS"].includes(voteForm.attendance_tp) &&
+      voteForm.battle_join_yn === "Y"
+    ) {
+      alert("보류 또는 불참 상태에서는 배틀로얄에 참가할 수 없습니다.");
+      return;
+    }
+
+    const payload = {
+      meeting_id: voteMeeting.meeting_id,
+      user_id: profile.id,
+      attendance_tp: voteForm.attendance_tp,
+      battle_join_yn: voteForm.battle_join_yn,
+      memo: voteForm.memo,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("degul_attendance")
+      .upsert(payload, {
+        onConflict: "meeting_id,user_id",
+      });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setVoteDialogOpen(false);
+    await loadMyAttendances();
+    await loadBattleEntries();
+  };
+
+  const openFlashDialog = () => {
+    setFlashForm({
+      ...EMPTY_FLASH_FORM,
+      meeting_dt: `${selectedDate}T21:00`,
+    });
+
+    setFlashDialogOpen(true);
+  };
+
+  const saveFlashMeeting = async () => {
+    if (!flashForm.meeting_nm.trim() || !flashForm.center_id || !flashForm.meeting_dt) {
+      alert("모임명, 볼링장, 일시는 필수입니다.");
+      return;
+    }
+
+    const { error } = await supabase.from("degul_meeting").insert({
+      meeting_nm: flashForm.meeting_nm.trim(),
+      meeting_tp: "FLS",
+      center_id: flashForm.center_id,
+      meeting_dt: flashForm.meeting_dt,
+      max_member_cnt: flashForm.max_member_cnt
+        ? Number(flashForm.max_member_cnt)
+        : null,
+      memo: flashForm.memo.trim(),
+      status: "OPN",
+      created_by: profile.id,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setFlashDialogOpen(false);
+    setFlashForm(EMPTY_FLASH_FORM);
+    await loadMeetings();
+  };
+  const closeFlashMeeting = async (meeting) => {
+    if (meeting.meeting_tp !== "FLS") return;
+
+    if (meeting.created_by !== profile?.id) {
+      alert("번개 개설자만 마감할 수 있습니다.");
+      return;
+    }
+
+    const ok = confirm(
+      "번개를 마감하고 배틀로얄 대진표를 생성할까요?\n마감 후에는 참석 투표를 수정할 수 없습니다."
+    );
+
+    if (!ok) return;
+
+    const { error: updateError } = await supabase
+      .from("degul_meeting")
+      .update({
+        status: "CLS",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("meeting_id", meeting.meeting_id)
+      .eq("created_by", profile.id)
+      .eq("meeting_tp", "FLS");
+
+    if (updateError) {
+      alert(updateError.message);
+      return;
+    }
+
+    const { error: battleError } = await supabase.rpc("generate_battle_matches", {
+      p_meeting_id: meeting.meeting_id,
+    });
+
+    if (battleError) {
+      alert(`대진표 생성 실패: ${battleError.message}`);
+      return;
+    }
+
+    await loadMeetings();
+  };
+
+  const addGame = () => {
+    setScoreInputs([
+      ...scoreInputs,
+      {
+        game_no: scoreInputs.length + 1,
+        score: "",
+      },
+    ]);
+  };
+
+  const removeGame = (index) => {
+    const next = scoreInputs
+      .filter((_, itemIndex) => itemIndex !== index)
+      .map((item, itemIndex) => ({
+        ...item,
+        game_no: itemIndex + 1,
+      }));
+
+    setScoreInputs(next);
+  };
+
+  const updateScoreInput = (index, value) => {
+    if (value && (Number(value) < 0 || Number(value) > 300)) return;
+
+    const next = [...scoreInputs];
+
+    next[index] = {
+      ...next[index],
+      score: value,
+    };
+
+    setScoreInputs(next);
+  };
+
+  const saveScores = async () => {
+    if (!selectedMeeting || !profile?.id) return;
+
+    const validScores = scoreInputs
+      .filter((item) => item.score !== "")
+      .map((item, index) => ({
+        meeting_id: selectedMeeting.meeting_id,
+        user_id: profile.id,
+        game_no: index + 1,
+        score: Number(item.score),
+      }));
+
+    const invalid = validScores.some(
+      (item) => item.score < 0 || item.score > 300 || Number.isNaN(item.score)
+    );
+
+    if (invalid) {
+      alert("점수는 0~300 사이로 입력해주세요.");
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("degul_score")
+      .delete()
+      .eq("meeting_id", selectedMeeting.meeting_id)
+      .eq("user_id", profile.id);
+
+    if (deleteError) {
+      alert(deleteError.message);
+      return;
+    }
+
+    if (validScores.length > 0) {
+      const { error: insertError } = await supabase
+        .from("degul_score")
+        .insert(validScores);
+
+      if (insertError) {
+        alert(insertError.message);
+        return;
+      }
+    }
+
+    setScoreDialogOpen(false);
+    await loadScores();
+  };
+
+  const deleteScores = async () => {
+    if (!selectedMeeting || !profile?.id) return;
+
+    if (!confirm("해당 모임의 내 점수를 모두 삭제할까요?")) return;
+
+    const { error } = await supabase
+      .from("degul_score")
+      .delete()
+      .eq("meeting_id", selectedMeeting.meeting_id)
+      .eq("user_id", profile.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setScoreDialogOpen(false);
+    await loadScores();
+  };
+
   const renderSelectedContent = () => {
     if (tab === 0) {
-      if (!selectedScore) {
-        return <EmptyState text="선택한 날짜에 등록된 점수가 없습니다." />;
-      }
-
-      const total = selectedScore.scores.reduce((sum, score) => sum + score, 0);
-      const avg = (total / selectedScore.scores.length).toFixed(1);
-      const max = Math.max(...selectedScore.scores);
-
       return (
         <Stack spacing={2}>
-          <Card sx={cardSx}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography fontWeight={800}>{toKoreanDate(selectedDate)}</Typography>
-                <Typography color="text.secondary">{selectedScore.center}</Typography>
-              </Stack>
-
-              <Stack direction="row" sx={{ mt: 2 }}>
-                <InfoBox label="게임 수" value={`${selectedScore.scores.length}게임`} />
-                <InfoBox label="평균 점수" value={avg} />
-                <InfoBox label="최고 점수" value={max} />
-                <InfoBox label="누적 점수" value={total} />
-              </Stack>
-            </CardContent>
-          </Card>
-
-          <Card sx={cardSx}>
-            <CardContent>
-              <Typography fontWeight={800} sx={{ mb: 1 }}>
-                게임별 점수
-              </Typography>
-
-              {selectedScore.scores.map((score, index) => (
-                <Box key={index}>
-                  <Stack direction="row" justifyContent="space-between" py={1.2}>
-                    <Typography color="text.secondary">{index + 1}게임</Typography>
-                    <Typography fontWeight={700}>{score}점</Typography>
-                  </Stack>
-                  {index < selectedScore.scores.length - 1 && <Divider />}
-                </Box>
-              ))}
-            </CardContent>
-          </Card>
-        </Stack>
-      );
-    }
-
-    if (tab === 1) {
-      return (
-        <Stack spacing={2}>
-          <Typography fontWeight={800}>{toKoreanDate(selectedDate)} 모임 일정</Typography>
-
-          {selectedMeetings.length === 0 ? (
-            <EmptyState text="선택한 날짜에 등록된 모임이 없습니다." />
-          ) : (
-            selectedMeetings.map((item, index) => (
-              <MeetingCard key={index} item={item} selected />
-            ))
-          )}
-
-          <Typography fontWeight={800} sx={{ mt: 1 }}>
-            다가오는 모임
+          <Typography fontWeight={800}>
+            {toKoreanDate(selectedDate)} 스코어
           </Typography>
 
-          {upcomingMeetings.map((item, index) => (
-            <MeetingCard key={index} item={item} />
-          ))}
+          {scoreTargetMeetings.length === 0 ? (
+            <EmptyState text="참석한 모임이 없습니다." />
+          ) : (
+            scoreTargetMeetings.map((meeting) => {
+              const myScores = scores
+                .filter((score) => score.meeting_id === meeting.meeting_id)
+                .sort((a, b) => a.game_no - b.game_no);
+
+              return (
+                <ScoreMeetingCard
+                  key={meeting.meeting_id}
+                  meeting={meeting}
+                  scores={myScores}
+                  onClick={() => openScoreDialog(meeting)}
+                />
+              );
+            })
+          )}
         </Stack>
       );
     }
+    const openBattleDialog = async (meeting) => {
+      if (meeting.status !== "CLS") {
+        alert("모임이 마감된 후 확인 가능합니다.");
+        return;
+      }
 
-    if (selectedEvents.length === 0) {
-      return <EmptyState text="선택한 날짜에 등록된 이벤트가 없습니다." />;
+      setBattleMeeting(meeting);
+
+      const { data, error } = await supabase
+        .from("degul_battle_history")
+        .select(`
+          battle_id,
+          meeting_id,
+          game_no,
+          bye_yn,
+          result_status,
+          user1:user1_id (
+            id,
+            name,
+            nickname
+          ),
+          user2:user2_id (
+            id,
+            name,
+            nickname
+          )
+        `)
+        .eq("meeting_id", meeting.meeting_id)
+        .order("game_no", { ascending: true });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setBattleMatches(data || []);
+      setBattleDialogOpen(true);
+    };
+
+    if (tab === 2) {
+      return <EmptyState text="이벤트 기능은 추후 구현 예정입니다." />;
     }
 
     return (
       <Stack spacing={2}>
-        {selectedEvents.map((item, index) => (
-          <Card key={index} sx={cardSx}>
-            <CardContent>
-              <Typography fontWeight={800}>{item.title}</Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                {item.center}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
+        <Typography fontWeight={800}>
+          {toKoreanDate(selectedDate)} 모임 일정
+        </Typography>
+
+        {selectedMeetings.length === 0 ? (
+          <EmptyState text="선택한 날짜에 등록된 모임이 없습니다." />
+        ) : (
+          selectedMeetings.map((meeting) => {
+            const myAttendance = myAttendances.find(
+              (attendance) => attendance.meeting_id === meeting.meeting_id
+            );
+
+            return (
+              <MeetingCard
+                key={meeting.meeting_id}
+                meeting={meeting}
+                attendance={myAttendance}
+                profile={profile}
+                onVoteClick={() => openVoteDialog(meeting)}
+                onBattleClick={() => openBattleDialog(meeting)}
+                onCloseFlashClick={() => closeFlashMeeting(meeting)}
+              />
+            );
+          })
+        )}
+
+        {upcomingMeetings.length > 0 && (
+          <>
+            <Typography fontWeight={800} sx={{ mt: 1 }}>
+              다가오는 모임
+            </Typography>
+
+            {upcomingMeetings.slice(0, 5).map((meeting) => {
+              const myAttendance = myAttendances.find(
+                (attendance) => attendance.meeting_id === meeting.meeting_id
+              );
+
+              return (
+                <MeetingCard
+                  key={meeting.meeting_id}
+                  meeting={meeting}
+                  attendance={myAttendance}
+                  profile={profile}
+                  onVoteClick={() => openVoteDialog(meeting)}
+                  onBattleClick={() => openBattleDialog(meeting)}
+                  onCloseFlashClick={() => closeFlashMeeting(meeting)}
+                />
+              );
+            })}
+          </>
+        )}
       </Stack>
     );
   };
@@ -267,24 +680,20 @@ function CalendarPage() {
         value={tab}
         onChange={(e, value) => setTab(value)}
         variant="fullWidth"
-        sx={{
-          mb: 2,
-          "& .MuiTab-root": {
-            fontWeight: 700,
-          },
-        }}
+        sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
       >
         <Tab label="스코어" />
         <Tab label="모임" />
         <Tab label="이벤트" />
       </Tabs>
 
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 1 }}
-      >
+      {message && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      )}
+
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <IconButton onClick={() => moveMonth(-1)}>
           <ChevronLeftIcon />
         </IconButton>
@@ -298,13 +707,7 @@ function CalendarPage() {
         </IconButton>
       </Stack>
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          mb: 1,
-        }}
-      >
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", mb: 1 }}>
         {WEEK_LABELS.map((label, index) => (
           <Typography
             key={label}
@@ -393,12 +796,7 @@ function CalendarPage() {
                       width: 5,
                       height: 5,
                       borderRadius: "50%",
-                      bgcolor:
-                        mark === "score"
-                          ? "#43a047"
-                          : mark === "meeting"
-                          ? "#1976d2"
-                          : "#fb8c00",
+                      bgcolor: mark === "score" ? "#43a047" : "#1976d2",
                     }}
                   />
                 ))}
@@ -408,142 +806,65 @@ function CalendarPage() {
         })}
       </Box>
 
-      {tab === 1 && (
-        <Stack direction="row" spacing={2} sx={{ mb: 2, px: 0.5 }}>
-          <Legend color="#1976d2" label="정기전" />
-          <Legend color="#fb8c00" label="번개모임" />
-          <Legend color="#bdbdbd" label="기타" />
-        </Stack>
-      )}
+      <Stack direction="row" spacing={2} sx={{ mb: 2, px: 0.5 }}>
+        <Legend color="#1976d2" label="모임" />
+        <Legend color="#43a047" label="점수입력" />
+      </Stack>
 
       {renderSelectedContent()}
 
-      <Fab
-        color="primary"
-        sx={{
-          position: "fixed",
-          bottom: "calc(88px + env(safe-area-inset-bottom))",
-          right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
-          zIndex: 1200,
-        }}
-      >
-        <AddIcon />
-      </Fab>
-    </Box>
-  );
-}
+      {tab === 1 && (
+        <Fab
+          color="primary"
+          onClick={openFlashDialog}
+          sx={{
+            position: "fixed",
+            bottom: "calc(88px + env(safe-area-inset-bottom))",
+            right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
+            zIndex: 1200,
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
 
-function MeetingCard({ item, selected = false }) {
-  const isRegular = item.type === "REGULAR";
-
-  return (
-    <Card sx={cardSx}>
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Typography
-            fontWeight={800}
-            color={isRegular ? "primary.main" : "warning.main"}
-          >
-            {item.time}
-          </Typography>
-
-          <Box sx={{ flex: 1 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography fontWeight={800}>{item.title}</Typography>
-
-              {selected && (
-                <Chip
-                  label="참석"
-                  color="primary"
-                  size="small"
-                  sx={{ fontWeight: 700 }}
-                />
-              )}
-            </Stack>
-
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              {item.center}
-            </Typography>
-          </Box>
-
-          <Typography variant="body2" color="text.secondary">
-            참석 {item.attend}
-          </Typography>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
-
-function InfoBox({ label, value }) {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        textAlign: "center",
-        borderRight: "1px solid #eee",
-        "&:last-of-type": {
-          borderRight: "none",
-        },
-      }}
-    >
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography fontWeight={800} sx={{ mt: 0.5 }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-}
-
-function Legend({ color, label }) {
-  return (
-    <Stack direction="row" spacing={0.7} alignItems="center">
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          bgcolor: color,
-        }}
+      <ScoreDialog
+        open={scoreDialogOpen}
+        meeting={selectedMeeting}
+        scoreInputs={scoreInputs}
+        onClose={() => setScoreDialogOpen(false)}
+        onAddGame={addGame}
+        onRemoveGame={removeGame}
+        onUpdateScore={updateScoreInput}
+        onSave={saveScores}
+        onDelete={deleteScores}
       />
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-    </Stack>
-  );
-}
 
-function EmptyState({ text }) {
-  return (
-    <Box
-      sx={{
-        py: 5,
-        textAlign: "center",
-        color: "text.secondary",
-      }}
-    >
-      <Typography>{text}</Typography>
+      <VoteDialog
+        open={voteDialogOpen}
+        meeting={voteMeeting}
+        voteForm={voteForm}
+        setVoteForm={setVoteForm}
+        onClose={() => setVoteDialogOpen(false)}
+        onSave={saveVote}
+      />
+
+      <FlashMeetingDialog
+        open={flashDialogOpen}
+        centers={centers}
+        form={flashForm}
+        setForm={setFlashForm}
+        onClose={() => setFlashDialogOpen(false)}
+        onSave={saveFlashMeeting}
+      />
+      <BattleMatchDialog
+        open={battleDialogOpen}
+        meeting={battleMeeting}
+        matches={battleMatches}
+        onClose={() => setBattleDialogOpen(false)}
+      />
     </Box>
   );
 }
-
-function toKoreanDate(dateText) {
-  const date = new Date(dateText);
-  const dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-
-  return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}월 ${String(date.getDate()).padStart(2, "0")}일 (${
-    dayLabels[date.getDay()]
-  })`;
-}
-
-const cardSx = {
-  borderRadius: 3,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-};
 
 export default CalendarPage;

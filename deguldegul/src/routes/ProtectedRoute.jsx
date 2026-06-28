@@ -28,7 +28,7 @@ function ProtectedRoute() {
     return <Navigate to="/complete-profile" replace />;
   }
 
-  if (profile.status !== "ACTIVE") {
+  if (profile.status !== "ACT") {
     return <Navigate to="/" replace />;
   }
 

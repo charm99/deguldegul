@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Avatar,
   Box,
+  Button,
   Card,
   CardContent,
   Divider,
@@ -12,96 +13,21 @@ import {
   Tab,
   Tabs,
   Typography,
+  Alert,
 } from "@mui/material";
 
-const myStats = {
-  name: "홍길동",
-  joinDate: "2023.03.15",
-  avgScore: 187.5,
-  highScore: 279,
-  attendanceCount: 28,
-  attendanceRate: 93.3,
-  totalScore: 12450,
-};
-
-const monthlyAvgData = [
-  { month: "1월", score: 187.5 },
-  { month: "2월", score: 210.2 },
-  { month: "3월", score: 226.8 },
-  { month: "4월", score: 195.3 },
-  { month: "5월", score: 279.0 },
-  { month: "6월", score: 187.5 },
-];
-
-const recentGames = [
-  {
-    date: "2026.06.21",
-    center: "볼원 볼링장",
-    games: "3게임",
-    scores: "213 / 187 / 162",
-  },
-  {
-    date: "2026.06.14",
-    center: "레인보우볼링장",
-    games: "2게임",
-    scores: "179 / 201",
-  },
-  {
-    date: "2026.06.07",
-    center: "양산킴스 볼링센터",
-    games: "3게임",
-    scores: "198 / 187 / 142",
-  },
-];
-
-const highScoreRanking = [
-  { rank: 1, name: "홍길동", score: 279, gameCount: 8 },
-  { rank: 2, name: "김철수", score: 268, gameCount: 7 },
-  { rank: 3, name: "이영희", score: 256, gameCount: 8 },
-  { rank: 4, name: "박민수", score: 245, gameCount: 6 },
-  { rank: 5, name: "정민호", score: 235, gameCount: 7 },
-  { rank: 6, name: "최지영", score: 223, gameCount: 6 },
-  { rank: 7, name: "강현우", score: 215, gameCount: 5 },
-  { rank: 8, name: "표상훈", score: 210, gameCount: 6 },
-  { rank: 9, name: "유재석", score: 205, gameCount: 5 },
-  { rank: 10, name: "조세호", score: 198, gameCount: 6 },
-];
-
-const avgScoreRanking = [
-  { rank: 1, name: "홍길동", score: 187.5, gameCount: 8 },
-  { rank: 2, name: "김철수", score: 179.3, gameCount: 7 },
-  { rank: 3, name: "이영희", score: 168.9, gameCount: 8 },
-  { rank: 4, name: "박민수", score: 162.4, gameCount: 6 },
-  { rank: 5, name: "정민호", score: 158.6, gameCount: 7 },
-  { rank: 6, name: "최지영", score: 155.2, gameCount: 6 },
-  { rank: 7, name: "강현우", score: 153.1, gameCount: 5 },
-  { rank: 8, name: "표상훈", score: 150.3, gameCount: 6 },
-  { rank: 9, name: "유재석", score: 148.7, gameCount: 5 },
-  { rank: 10, name: "조세호", score: 146.5, gameCount: 6 },
-];
-
-const attendanceRanking = [
-  { rank: 1, name: "홍길동", attendCount: 28, totalMeeting: 30, rate: 93.3 },
-  { rank: 2, name: "김철수", attendCount: 27, totalMeeting: 30, rate: 90.0 },
-  { rank: 3, name: "이영희", attendCount: 25, totalMeeting: 30, rate: 83.3 },
-  { rank: 4, name: "박민수", attendCount: 24, totalMeeting: 30, rate: 80.0 },
-  { rank: 5, name: "정민호", attendCount: 22, totalMeeting: 30, rate: 73.3 },
-  { rank: 6, name: "최지영", attendCount: 20, totalMeeting: 30, rate: 66.7 },
-  { rank: 7, name: "강현우", attendCount: 18, totalMeeting: 30, rate: 60.0 },
-];
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../services/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 
 function RankingPage() {
   const [tab, setTab] = useState(0);
   const [rankingRange, setRankingRange] = useState("MONTHLY");
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
   return (
     <Box sx={{ p: 2, minHeight: "calc(100vh - 80px)" }}>
-      <Typography
-        variant="h6"
-        fontWeight={800}
-        textAlign="center"
-        sx={{ mb: 2 }}
-      >
+      <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ mb: 2 }}>
         통계
       </Typography>
 
@@ -109,46 +35,97 @@ function RankingPage() {
         value={tab}
         onChange={(e, value) => setTab(value)}
         variant="fullWidth"
-        sx={{
-          mb: 2,
-          "& .MuiTab-root": {
-            fontWeight: 700,
-          },
-        }}
+        sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
       >
         <Tab label="개인 통계" />
-        <Tab label="점수 랭킹" />
-        <Tab label="출석 랭킹" />
+        <Tab label="랭킹" />
+        <Tab label="배틀로얄" />
       </Tabs>
 
       {tab === 0 && <PersonalStatsView />}
 
       {tab === 1 && (
-        <ScoreRankingView
+        <RankingView
           rankingRange={rankingRange}
           setRankingRange={setRankingRange}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
         />
       )}
 
-      {tab === 2 && <AttendanceRankingView />}
+      {tab === 2 && <BattleRankingView />}
     </Box>
   );
 }
 
 function PersonalStatsView() {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+
+  const [myStats, setMyStats] = useState({
+    avg_score: 0,
+    high_score: 0,
+    game_cnt: 0,
+    total_score: 0,
+    attendance_count: 0,
+    attendance_rate: 0,
+  });
+
+  const [monthlyAvgData, setMonthlyAvgData] = useState([]);
+  const [recentGames, setRecentGames] = useState([]);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [message, setMessage] = useState("");
+
+  const loadPersonalStats = async () => {
+    setMessage("");
+
+    const { data: statData, error: statError } = await supabase.rpc("get_my_stats");
+
+    if (statError) {
+      setMessage(statError.message);
+      return;
+    }
+
+    setMyStats(statData?.[0] || myStats);
+
+    const { data: monthData, error: monthError } = await supabase.rpc(
+      "get_my_monthly_avg",
+      { p_year: year }
+    );
+
+    if (monthError) {
+      setMessage(monthError.message);
+      return;
+    }
+
+    setMonthlyAvgData(monthData || []);
+
+    const { data: recentData, error: recentError } = await supabase.rpc(
+      "get_my_recent_games",
+      { p_limit: 5 }
+    );
+
+    if (recentError) {
+      setMessage(recentError.message);
+      return;
+    }
+
+    setRecentGames(recentData || []);
+  };
+
+  useEffect(() => {
+    loadPersonalStats();
+  }, [year]);
+
   return (
     <Stack spacing={2}>
-      <Card
-        sx={{
-          borderRadius: 3,
-          overflow: "hidden",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-        }}
-      >
+      {message && <Alert severity="error">{message}</Alert>}
+
+      <Card sx={cardSx}>
         <Box
           sx={{
             p: 2,
-            background: "linear-gradient(135deg, #5E35B1, #7E57C2)",
+            background: "linear-gradient(135deg, #1976d2, #42a5f5)",
             color: "#fff",
           }}
         >
@@ -161,36 +138,37 @@ function PersonalStatsView() {
               sx={{
                 width: 70,
                 height: 70,
-                bgcolor: "#d7d2f3",
+                bgcolor: "rgba(255,255,255,0.24)",
                 fontSize: 28,
+                fontWeight: 900,
               }}
             >
-              홍
+              {(profile?.nickname || profile?.name || "회").slice(0, 1)}
             </Avatar>
 
             <Box>
               <Typography variant="h5" fontWeight={900}>
-                {myStats.name}
+                {profile?.nickname || profile?.name || "회원"}
               </Typography>
               <Typography sx={{ opacity: 0.9 }}>
-                클럽 가입일 {myStats.joinDate}
+                클럽 가입일 {profile?.join_date || "-"}
               </Typography>
             </Box>
           </Stack>
         </Box>
 
         <CardContent sx={{ p: 0 }}>
-          <StatRow label="평균 점수" value={myStats.avgScore} />
-          <StatRow label="최고 점수" value={myStats.highScore} />
-          <StatRow label="참석 횟수" value={`${myStats.attendanceCount}회`} />
+          <StatRow label="평균 점수" value={formatNumber(myStats.avg_score, 1)} />
+          <StatRow label="최고 점수" value={myStats.high_score || 0} />
+          <StatRow label="참석 횟수" value={`${myStats.attendance_count || 0}회`} />
           <StatRow
             label="출석률"
-            value={`${myStats.attendanceRate}%`}
+            value={`${formatNumber(myStats.attendance_rate, 1)}%`}
             highlight
           />
           <StatRow
             label="누적 점수"
-            value={myStats.totalScore.toLocaleString()}
+            value={Number(myStats.total_score || 0).toLocaleString()}
             last
           />
         </CardContent>
@@ -208,14 +186,19 @@ function PersonalStatsView() {
 
             <Select
               size="small"
-              value="2026"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
               sx={{
                 height: 34,
                 fontSize: 13,
                 borderRadius: 2,
               }}
             >
-              <MenuItem value="2026">2026년</MenuItem>
+              {getYearOptions().map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}년
+                </MenuItem>
+              ))}
             </Select>
           </Stack>
 
@@ -227,136 +210,355 @@ function PersonalStatsView() {
         <CardContent>
           <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
             <Typography fontWeight={800}>최근 게임 기록</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Button
+              size="small"
+              onClick={() => navigate("/ranking/my-records")}
+              sx={{ fontWeight: 800 }}
+            >
               더보기
-            </Typography>
+            </Button>
           </Stack>
 
-          {recentGames.map((item, index) => (
-            <Box key={index}>
-              <Stack
-                direction="row"
-                alignItems="center"
-                justifyContent="space-between"
-                py={1}
-                spacing={1}
-              >
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ width: 78 }}
+          {recentGames.length === 0 ? (
+            <Typography color="text.secondary" textAlign="center" sx={{ py: 2 }}>
+              기록이 없습니다.
+            </Typography>
+          ) : (
+            recentGames.map((item, index) => (
+              <Box key={item.meeting_id}>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  py={1}
+                  spacing={1}
                 >
-                  {item.date}
-                </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ width: 76 }}
+                  >
+                    {formatDate(item.meeting_dt)}
+                  </Typography>
 
-                <Typography variant="body2" sx={{ flex: 1 }}>
-                  {item.center}
-                </Typography>
+                  <Typography variant="body2" sx={{ flex: 1 }} noWrap>
+                    {item.center_nm || "-"}
+                  </Typography>
 
-                <Typography variant="body2" sx={{ width: 46 }}>
-                  {item.games}
-                </Typography>
+                  <Typography variant="body2" sx={{ width: 48 }}>
+                    {item.game_count}게임
+                  </Typography>
 
-                <Typography variant="body2" fontWeight={700}>
-                  {item.scores}
-                </Typography>
-              </Stack>
+                  <Typography variant="body2" fontWeight={700}>
+                    {item.scores}
+                  </Typography>
+                </Stack>
 
-              {index < recentGames.length - 1 && <Divider />}
-            </Box>
-          ))}
+                {index < recentGames.length - 1 && <Divider />}
+              </Box>
+            ))
+          )}
         </CardContent>
       </Card>
     </Stack>
   );
 }
 
-function ScoreRankingView({ rankingRange, setRankingRange }) {
+function RankingView({
+  rankingRange,
+  setRankingRange,
+  selectedMonth,
+  setSelectedMonth,
+}) {
+  const [scoreRanking, setScoreRanking] = useState([]);
+  const [attendanceRanking, setAttendanceRanking] = useState([]);
+  const [scoreSort, setScoreSort] = useState("AVG");
+  const [message, setMessage] = useState("");
+
+  const highScoreRanking = useMemo(() => {
+    return [...scoreRanking]
+      .sort((a, b) => Number(b.high_score || 0) - Number(a.high_score || 0))
+      .slice(0, 10);
+  }, [scoreRanking]);
+
+  const avgScoreRanking = useMemo(() => {
+    return [...scoreRanking]
+      .sort((a, b) => Number(b.avg_score || 0) - Number(a.avg_score || 0))
+      .slice(0, 10);
+  }, [scoreRanking]);
+
+  const selectedScoreRanking =
+    scoreSort === "AVG" ? avgScoreRanking : highScoreRanking;
+
+  const loadRanking = async () => {
+    setMessage("");
+
+    const { data: scoreData, error: scoreError } = await supabase.rpc(
+      "get_score_ranking",
+      {
+        p_range: rankingRange,
+        p_month: selectedMonth,
+      }
+    );
+
+    if (scoreError) {
+      setMessage(scoreError.message);
+      return;
+    }
+
+    setScoreRanking(scoreData || []);
+
+    const { data: attendanceData, error: attendanceError } = await supabase.rpc(
+      "get_attendance_ranking",
+      {
+        p_range: rankingRange,
+        p_month: selectedMonth,
+      }
+    );
+
+    if (attendanceError) {
+      setMessage(attendanceError.message);
+      return;
+    }
+
+    setAttendanceRanking(attendanceData || []);
+  };
+
+  useEffect(() => {
+    loadRanking();
+  }, [rankingRange, selectedMonth]);
+
   return (
     <Stack spacing={2}>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={1}
-      >
+      {message && <Alert severity="error">{message}</Alert>}
+
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
         <Stack
           direction="row"
           sx={{
             p: 0.4,
-            bgcolor: "#f4f2fa",
+            bgcolor: "#eef4fb",
             borderRadius: 99,
             flex: 1,
           }}
         >
           <RangeButton
             active={rankingRange === "MONTHLY"}
-            label="월별 랭킹"
+            label="점수 랭킹"
             onClick={() => setRankingRange("MONTHLY")}
           />
           <RangeButton
             active={rankingRange === "TOTAL"}
-            label="전체 랭킹"
+            label="출석 랭킹"
             onClick={() => setRankingRange("TOTAL")}
           />
         </Stack>
 
         <Select
           size="small"
-          value="2026-06"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
           sx={{
             height: 36,
-            minWidth: 110,
+            minWidth: 116,
             borderRadius: 2,
             fontSize: 13,
+            display: rankingRange === "MONTHLY" ? "block" : "none",
           }}
         >
-          <MenuItem value="2026-06">2026년 6월</MenuItem>
+          {getMonthOptions().map((item) => (
+            <MenuItem key={item.value} value={item.value}>
+              {item.label}
+            </MenuItem>
+          ))}
         </Select>
       </Stack>
 
-      <RankingTableCard
-        title="최고 점수 TOP 10"
-        columns={["순위", "이름", "최고 점수", "게임 수"]}
-        rows={highScoreRanking.map((item) => [
-          item.rank,
-          item.name,
-          item.score,
-          item.gameCount,
-        ])}
-      />
+      {rankingRange === "MONTHLY" ? (
+        <>
+          <Stack
+            direction="row"
+            sx={{
+              p: 0.4,
+              bgcolor: "#f5f6fa",
+              borderRadius: 99,
+            }}
+          >
+            <RangeButton
+              active={scoreSort === "AVG"}
+              label="평균 TOP10"
+              onClick={() => setScoreSort("AVG")}
+            />
+            <RangeButton
+              active={scoreSort === "HIGH"}
+              label="최고 TOP10"
+              onClick={() => setScoreSort("HIGH")}
+            />
+          </Stack>
 
-      <RankingTableCard
-        title="평균 점수 TOP 10"
-        columns={["순위", "이름", "평균 점수", "게임 수"]}
-        rows={avgScoreRanking.map((item) => [
-          item.rank,
-          item.name,
-          item.score,
-          item.gameCount,
-        ])}
-      />
+          <RankingTableCard
+            title={scoreSort === "AVG" ? "평균 점수 TOP 10" : "최고 점수 TOP 10"}
+            columns={
+              scoreSort === "AVG"
+                ? ["순위", "이름", "평균", "게임"]
+                : ["순위", "이름", "최고", "게임"]
+            }
+            rows={selectedScoreRanking.map((item, index) => [
+              index + 1,
+              item.nickname || item.user_nm,
+              scoreSort === "AVG"
+                ? formatNumber(item.avg_score, 1)
+                : item.high_score,
+              item.game_count,
+            ])}
+          />
 
-      <Typography variant="caption" color="text.secondary">
-        · 월별 랭킹은 해당 월에 등록된 게임을 기준으로 집계됩니다.
-      </Typography>
+          <Typography variant="caption" color="text.secondary">
+            · 점수 랭킹은 마감된 모임에 등록된 점수를 기준으로 집계됩니다.
+          </Typography>
+        </>
+      ) : (
+        <>
+          <RankingTableCard
+            title="출석 랭킹 TOP 10"
+            columns={["순위", "이름", "참석", "출석률"]}
+            rows={attendanceRanking.map((item, index) => [
+              index + 1,
+              item.nickname || item.user_nm,
+              `${item.attend_count}회`,
+              `${formatNumber(item.attendance_rate, 1)}%`,
+            ])}
+          />
+
+          <Typography variant="caption" color="text.secondary">
+            · 출석 랭킹은 마감된 모임의 참석/늦참 기록을 기준으로 집계됩니다.
+          </Typography>
+        </>
+      )}
     </Stack>
   );
 }
 
-function AttendanceRankingView() {
+function BattleRankingView() {
+  const [battleRanking, setBattleRanking] = useState([]);
+  const [sortKey, setSortKey] = useState("point");
+  const [message, setMessage] = useState("");
+
+  const sortedRows = useMemo(() => {
+    return [...battleRanking].sort((a, b) => {
+      const aPoint = calcBattlePoint(a);
+      const bPoint = calcBattlePoint(b);
+
+      if (sortKey === "point") return bPoint - aPoint;
+      if (sortKey === "battle_count") return b.battle_count - a.battle_count;
+      if (sortKey === "win_count") return b.win_count - a.win_count;
+      if (sortKey === "win_rate") return Number(b.win_rate) - Number(a.win_rate);
+
+      return bPoint - aPoint;
+    });
+  }, [battleRanking, sortKey]);
+
+  const loadBattleRanking = async () => {
+    setMessage("");
+
+    const { data, error } = await supabase.rpc("get_battle_ranking");
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setBattleRanking(data || []);
+  };
+
+  useEffect(() => {
+    loadBattleRanking();
+  }, []);
+
   return (
-    <RankingTableCard
-      title="출석 랭킹"
-      columns={["순위", "이름", "참석", "전체", "출석률"]}
-      rows={attendanceRanking.map((item) => [
-        item.rank,
-        item.name,
-        `${item.attendCount}회`,
-        `${item.totalMeeting}회`,
-        `${item.rate}%`,
-      ])}
-    />
+    <Stack spacing={2}>
+      {message && <Alert severity="error">{message}</Alert>}
+
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+
+        <Select
+          size="small"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value)}
+          sx={{ height: 36, minWidth: 120, borderRadius: 2, fontSize: 13 }}
+        >
+          <MenuItem value="point">포인트순</MenuItem>
+          <MenuItem value="battle_count">참여순</MenuItem>
+          <MenuItem value="win_count">승수순</MenuItem>
+          <MenuItem value="win_rate">승률순</MenuItem>
+        </Select>
+      </Stack>
+
+      <BattleRankingGrid rows={sortedRows} />
+    </Stack>
+  );
+}
+
+function BattleRankingGrid({ rows }) {
+  return (
+    <Card sx={cardSx}>
+      <CardContent>
+        <Box sx={{ overflowX: "auto" }}>
+          <Box sx={{ minWidth: 620 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "52px 120px 80px 80px 70px 70px 80px",
+                py: 1,
+                bgcolor: "#f5f6fa",
+                borderRadius: 2,
+              }}
+            >
+              {["순위", "이름", "포인트", "참여", "승", "패", "승률"].map(
+                (column) => (
+                  <Typography
+                    key={column}
+                    variant="caption"
+                    color="text.secondary"
+                    textAlign="center"
+                    fontWeight={800}
+                  >
+                    {column}
+                  </Typography>
+                )
+              )}
+            </Box>
+
+            {rows.map((item, index) => (
+              <Box
+                key={item.user_id}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "52px 120px 80px 80px 70px 70px 80px",
+                  py: 1.1,
+                  borderBottom: "1px solid #eee",
+                  bgcolor: index === 0 ? "#eaf4ff" : "transparent",
+                }}
+              >
+                <GridCell bold>{index + 1}</GridCell>
+                <GridCell bold>{item.nickname || item.user_nm}</GridCell>
+                <GridCell bold>{calcBattlePoint(item)}</GridCell>
+                <GridCell>{item.battle_count}</GridCell>
+                <GridCell>{item.win_count}</GridCell>
+                <GridCell>{item.lose_count}</GridCell>
+                <GridCell>{formatNumber(item.win_rate, 1)}%</GridCell>
+              </Box>
+            ))}
+
+            {rows.length === 0 && (
+              <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
+                배틀로얄 기록이 없습니다.
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -369,16 +571,14 @@ function RankingTableCard({ title, columns, rows }) {
         </Typography>
 
         <Box sx={{ overflowX: "auto" }}>
-          <Box
-            sx={{
-              minWidth: 420,
-            }}
-          >
+          <Box sx={{ minWidth: 420 }}>
             <Box
               sx={{
                 display: "grid",
                 gridTemplateColumns: `repeat(${columns.length}, 1fr)`,
                 py: 1,
+                bgcolor: "#f5f6fa",
+                borderRadius: 2,
               }}
             >
               {columns.map((column) => (
@@ -401,8 +601,8 @@ function RankingTableCard({ title, columns, rows }) {
                   display: "grid",
                   gridTemplateColumns: `repeat(${columns.length}, 1fr)`,
                   py: 1,
-                  borderRadius: 2,
-                  bgcolor: rowIndex === 0 ? "#efe7ff" : "transparent",
+                  borderBottom: "1px solid #eee",
+                  bgcolor: rowIndex === 0 ? "#eaf4ff" : "transparent",
                 }}
               >
                 {row.map((cell, cellIndex) => (
@@ -425,6 +625,12 @@ function RankingTableCard({ title, columns, rows }) {
                 ))}
               </Box>
             ))}
+
+            {rows.length === 0 && (
+              <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
+                조회된 기록이 없습니다.
+              </Typography>
+            )}
           </Box>
         </Box>
       </CardContent>
@@ -433,7 +639,15 @@ function RankingTableCard({ title, columns, rows }) {
 }
 
 function MonthlyBarChart({ data }) {
-  const maxScore = Math.max(...data.map((item) => item.score));
+  if (!data || data.length === 0) {
+    return (
+      <Typography color="text.secondary" textAlign="center" sx={{ py: 5 }}>
+        월별 점수 기록이 없습니다.
+      </Typography>
+    );
+  }
+
+  const maxScore = Math.max(...data.map((item) => Number(item.avg_score || 0)));
 
   return (
     <Box
@@ -448,18 +662,13 @@ function MonthlyBarChart({ data }) {
       }}
     >
       {data.map((item) => {
-        const height = Math.max((item.score / maxScore) * 150, 24);
+        const score = Number(item.avg_score || 0);
+        const height = Math.max((score / maxScore) * 150, 24);
 
         return (
-          <Box
-            key={item.month}
-            sx={{
-              flex: 1,
-              textAlign: "center",
-            }}
-          >
+          <Box key={item.month_no} sx={{ flex: 1, textAlign: "center" }}>
             <Typography variant="caption" fontWeight={700}>
-              {item.score}
+              {score.toFixed(1)}
             </Typography>
 
             <Box
@@ -469,7 +678,7 @@ function MonthlyBarChart({ data }) {
                 mx: "auto",
                 width: 22,
                 borderRadius: "8px 8px 0 0",
-                background: "linear-gradient(180deg, #7E57C2, #5E35B1)",
+                background: "linear-gradient(180deg, #42a5f5, #1976d2)",
               }}
             />
 
@@ -478,7 +687,7 @@ function MonthlyBarChart({ data }) {
               color="text.secondary"
               sx={{ display: "block", mt: 1 }}
             >
-              {item.month}
+              {item.month_label}
             </Typography>
           </Box>
         );
@@ -525,6 +734,67 @@ function RangeButton({ active, label, onClick }) {
       {label}
     </Box>
   );
+}
+
+function GridCell({ children, bold = false }) {
+  return (
+    <Typography textAlign="center" fontWeight={bold ? 800 : 500}>
+      {children}
+    </Typography>
+  );
+}
+
+function calcBattlePoint(item) {
+  return Number(item.win_count || 0) * 20 + Number(item.lose_count || 0) * 10;
+}
+
+function formatNumber(value, digits = 0) {
+  if (value === null || value === undefined || value === "-") return "-";
+
+  const num = Number(value);
+
+  if (Number.isNaN(num)) return "-";
+
+  return digits > 0 ? num.toFixed(digits) : num;
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleDateString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function getCurrentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthOptions() {
+  const now = new Date();
+  const result = [];
+
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+
+    result.push({
+      value,
+      label: `${date.getFullYear()}년 ${date.getMonth() + 1}월`,
+    });
+  }
+
+  return result;
+}
+
+function getYearOptions() {
+  const now = new Date().getFullYear();
+  return [now, now - 1, now - 2];
 }
 
 const cardSx = {

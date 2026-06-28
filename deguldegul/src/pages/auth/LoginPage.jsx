@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../../assets/logo.png";
 
 import {
   Container,
@@ -8,6 +9,7 @@ import {
   Stack,
   TextField,
   Alert,
+  Box
 } from "@mui/material";
 
 import { supabase } from "../../services/supabase";
@@ -60,20 +62,26 @@ function LoginPage() {
         return;
       }
 
-      if (profile.status === "PENDING") {
+      if (profile.status === "PND") {
         setMessage("관리자 승인 대기중입니다.");
         await supabase.auth.signOut();
         return;
       }
 
-      if (profile.status === "REJECTED") {
+      if (profile.status === "REJ") {
         setMessage("가입이 거절된 계정입니다.");
         await supabase.auth.signOut();
         return;
       }
 
-      if (profile.status === "SLEEP") {
+      if (profile.status === "SLP") {
         setMessage("휴면 계정입니다.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (profile.status !== "ACT") {
+        setMessage("사용할 수 없는 계정 상태입니다.");
         await supabase.auth.signOut();
         return;
       }
@@ -89,14 +97,19 @@ function LoginPage() {
 
   return (
     <Container maxWidth="sm">
-      <Stack spacing={2} sx={{ mt: 12 }}>
-        <Typography variant="h4" align="center" fontWeight={800}>
-          데굴데굴
-        </Typography>
-
-        <Typography align="center" color="text.secondary">
-          볼링 동호회 관리 앱
-        </Typography>
+      <Stack spacing={2} sx={{ mt: 12, alignItems: "center", }}>
+        <Box
+          component="img"
+          src={logo}
+          alt="데굴데굴"
+          sx={{
+            width: "90%",
+            maxWidth: 360,
+            mx: "auto",
+            display: "block",
+            mb: 3,
+          }}
+        />
 
         {message && <Alert severity="error">{message}</Alert>}
 
@@ -121,6 +134,7 @@ function LoginPage() {
           size="large"
           onClick={handleLogin}
           disabled={loading}
+          fullWidth
         >
           로그인
         </Button>
@@ -129,6 +143,7 @@ function LoginPage() {
           variant="outlined"
           size="large"
           onClick={() => navigate("/signup")}
+          fullWidth
         >
           회원가입
         </Button>
