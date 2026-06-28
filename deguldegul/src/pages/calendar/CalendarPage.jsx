@@ -144,6 +144,7 @@ function CalendarPage() {
           game_cost
         )
       `)
+      .eq("use_yn", "Y")
       .neq("status", "CNL")
       .gte("meeting_dt", monthStart.toISOString())
       .lt("meeting_dt", monthEnd.toISOString())
@@ -377,12 +378,13 @@ function CalendarPage() {
       meeting_nm: flashForm.meeting_nm.trim(),
       meeting_tp: "FLS",
       center_id: flashForm.center_id,
-      meeting_dt: flashForm.meeting_dt,
+      meeting_dt: koreanDateTimeLocalToUtcIso(flashForm.meeting_dt),
       max_member_cnt: flashForm.max_member_cnt
         ? Number(flashForm.max_member_cnt)
         : null,
       memo: flashForm.memo.trim(),
       status: "OPN",
+      use_yn: "Y",
       created_by: profile.id,
     });
 
@@ -430,6 +432,43 @@ function CalendarPage() {
 
     if (battleError) {
       alert(`대진표 생성 실패: ${battleError.message}`);
+      return;
+    }
+
+    await loadMeetings();
+  };
+  const deleteFlashMeeting = async (meeting) => {
+    if (meeting.meeting_tp !== "FLS") return;
+
+    if (meeting.created_by !== profile?.id) {
+      alert("번개 개설자만 삭제할 수 있습니다.");
+      return;
+    }
+
+    if (meeting.status !== "OPN") {
+      alert("모집중인 번개만 삭제할 수 있습니다.");
+      return;
+    }
+
+    const ok = confirm(
+      "번개 모임을 삭제할까요?\n삭제 후 캘린더에서 보이지 않습니다."
+    );
+
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("degul_meeting")
+      .update({
+        use_yn: "N",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("meeting_id", meeting.meeting_id)
+      .eq("meeting_tp", "FLS")
+      .eq("created_by", profile.id)
+      .eq("status", "OPN");
+
+    if (error) {
+      alert(error.message);
       return;
     }
 
@@ -635,6 +674,7 @@ function CalendarPage() {
                 onVoteClick={() => openVoteDialog(meeting)}
                 onBattleClick={() => openBattleDialog(meeting)}
                 onCloseFlashClick={() => closeFlashMeeting(meeting)}
+                onDeleteFlashClick={() => deleteFlashMeeting(meeting)}
               />
             );
           })
@@ -838,6 +878,20 @@ function CalendarPage() {
       />
     </Box>
   );
+}
+
+function koreanDateTimeLocalToUtcIso(value) {
+  if (!value) return null;
+
+  // value 예: "2026-07-29T21:00"
+  const [datePart, timePart] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  // 한국시간 UTC+9 이므로 UTC로 저장하려면 9시간 빼기
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 9, minute, 0));
+
+  return utcDate.toISOString();
 }
 
 export default CalendarPage;

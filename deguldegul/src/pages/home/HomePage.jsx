@@ -57,6 +57,7 @@ function HomePage() {
           address
         )
       `)
+      .eq("use_yn","Y")
       .neq("status", "CNL")
       .gte("meeting_dt", now)
       .order("meeting_dt", { ascending: true })

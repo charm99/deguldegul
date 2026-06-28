@@ -36,6 +36,7 @@ function MeetingCard({
   onVoteClick,
   onBattleClick,
   onCloseFlashClick,
+  onDeleteFlashClick,
 }) {
   const [showAddress, setShowAddress] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -45,21 +46,31 @@ function MeetingCard({
     meeting.created_by === profile?.id &&
     meeting.status === "OPN";
 
-  const accountText = [
+  const canDeleteFlash = isFlashOwner;
+
+  const displayAccountText = [
     meeting.center?.bank_nm,
-    meeting.center?.account_no
+    meeting.center?.account_no,
+    meeting.center?.account_holder,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const copyAccountText = [
+    meeting.center?.bank_nm,
+    meeting.center?.account_no,
   ]
     .filter(Boolean)
     .join(" ");
 
   const copyAccount = async () => {
-    if (!accountText) return;
+    if (!copyAccountText) return;
 
     try {
-      await navigator.clipboard.writeText(accountText);
+      await navigator.clipboard.writeText(copyAccountText);
       setSnackbarOpen(true);
     } catch {
-      alert(accountText);
+      alert(copyAccountText);
     }
   };
 
@@ -78,11 +89,7 @@ function MeetingCard({
                 spacing={0.7}
                 alignItems="center"
                 onClick={() => setShowAddress((prev) => !prev)}
-                sx={{
-                  mt: 1,
-                  cursor: "pointer",
-                  width: "fit-content",
-                }}
+                sx={{ mt: 1, cursor: "pointer", width: "fit-content" }}
               >
                 <PlaceOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
                 <Typography variant="body2" color="text.secondary" noWrap>
@@ -94,11 +101,7 @@ function MeetingCard({
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{
-                    mt: 0.7,
-                    pl: "25px",
-                    whiteSpace: "pre-wrap",
-                  }}
+                  sx={{ mt: 0.7, pl: "25px", whiteSpace: "pre-wrap" }}
                 >
                   {meeting.center?.address || "등록된 주소가 없습니다."}
                 </Typography>
@@ -158,7 +161,7 @@ function MeetingCard({
             </Stack>
           )}
 
-          {meeting.meeting_tp === "REG" && accountText && (
+          {meeting.meeting_tp === "REG" && displayAccountText && (
             <Box
               onClick={copyAccount}
               sx={{
@@ -171,11 +174,14 @@ function MeetingCard({
             >
               <Stack direction="row" spacing={0.8} alignItems="center">
                 <AccountBalanceIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-                <Typography variant="body2" color="text.secondary">
-                    {meeting.center?.bank_nm}{" "}
-                    {meeting.center?.account_no}{" "}
-                    {meeting.center?.account_holder}
-                </Typography>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {displayAccountText}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    터치하면 은행/계좌번호가 복사됩니다.
+                  </Typography>
+                </Box>
               </Stack>
             </Box>
           )}
@@ -198,11 +204,7 @@ function MeetingCard({
               variant="contained"
               onClick={onVoteClick}
               disabled={meeting.status !== "OPN"}
-              sx={{
-                fontWeight: 900,
-                borderRadius: 2,
-                py: 1,
-              }}
+              sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
             >
               {attendance ? "참석 정보 수정" : "참석 투표"}
             </Button>
@@ -213,11 +215,7 @@ function MeetingCard({
                 variant="outlined"
                 color="warning"
                 onClick={onCloseFlashClick}
-                sx={{
-                  fontWeight: 900,
-                  borderRadius: 2,
-                  py: 1,
-                }}
+                sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
               >
                 번개 마감/대진생성
               </Button>
@@ -227,14 +225,22 @@ function MeetingCard({
               fullWidth
               variant="outlined"
               onClick={onBattleClick}
-              sx={{
-                fontWeight: 900,
-                borderRadius: 2,
-                py: 1,
-              }}
+              sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
             >
               대진표 보기
             </Button>
+
+            {canDeleteFlash && (
+              <Button
+                fullWidth
+                variant="outlined"
+                color="error"
+                onClick={onDeleteFlashClick}
+                sx={{ fontWeight: 900, borderRadius: 2, py: 1 }}
+              >
+                번개 삭제
+              </Button>
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -243,7 +249,7 @@ function MeetingCard({
         open={snackbarOpen}
         autoHideDuration={1800}
         onClose={() => setSnackbarOpen(false)}
-        message="계좌번호가 복사되었습니다."
+        message="은행/계좌번호가 복사되었습니다."
       />
     </>
   );
