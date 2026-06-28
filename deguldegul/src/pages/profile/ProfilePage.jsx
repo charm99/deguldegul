@@ -55,6 +55,7 @@ function ProfilePage() {
 
       <MenuCard
         items={[
+          { label: "포인트 이력", onClick: () => navigate("/profile/points") },
           { label: "알림 설정", onClick: () => alert("알림 설정은 추후 업데이트 예정입니다.") },
           { label: "이용약관", onClick: () => navigate("/profile/terms") },
           { label: "개인정보처리방침", onClick: () => navigate("/profile/privacy") },

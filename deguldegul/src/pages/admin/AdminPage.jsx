@@ -55,13 +55,17 @@ function AdminPage() {
         </Card>
 
         <Card sx={{ borderRadius: 3 }}>
-          <CardContent>
-            <Typography fontWeight={800}>관리 기능</Typography>
-            <Typography variant="body2" color="text.secondary">
-              현재는 볼링장관리부터 구현합니다.
-            </Typography>
-          </CardContent>
+          <List>
+            <ListItemButton onClick={() => navigate("/admin/battle")}>
+              <ListItemText
+                primary="배틀로얄 관리"
+                secondary="배틀로얄 정산, 포인트이력 관리"
+              />
+            </ListItemButton>
+          </List>
         </Card>
+
+
       </Stack>
     </Box>
   );

@@ -94,10 +94,6 @@ function CalendarPage() {
     )
   );
 
-  const upcomingMeetings = meetings.filter(
-    (meeting) => getDateKeyFromValue(meeting.meeting_dt) > selectedDate
-  );
-
   const loadCenters = async () => {
     const { data, error } = await supabase
       .from("degul_center")
@@ -299,7 +295,7 @@ function CalendarPage() {
         }))
       );
     } else {
-      const defaultGameCount = meeting.meeting_tp === "REG" ? 4 : 3;
+      const defaultGameCount = 4;
 
       setScoreInputs(
         Array.from({ length: defaultGameCount }, (_, index) => ({
@@ -586,6 +582,9 @@ function CalendarPage() {
           game_no,
           bye_yn,
           result_status,
+          result_confirm_yn,
+          winner_user_id,
+          loser_user_id,
           user1:user1_id (
             id,
             name,
@@ -639,32 +638,6 @@ function CalendarPage() {
               />
             );
           })
-        )}
-
-        {upcomingMeetings.length > 0 && (
-          <>
-            <Typography fontWeight={800} sx={{ mt: 1 }}>
-              다가오는 모임
-            </Typography>
-
-            {upcomingMeetings.slice(0, 5).map((meeting) => {
-              const myAttendance = myAttendances.find(
-                (attendance) => attendance.meeting_id === meeting.meeting_id
-              );
-
-              return (
-                <MeetingCard
-                  key={meeting.meeting_id}
-                  meeting={meeting}
-                  attendance={myAttendance}
-                  profile={profile}
-                  onVoteClick={() => openVoteDialog(meeting)}
-                  onBattleClick={() => openBattleDialog(meeting)}
-                  onCloseFlashClick={() => closeFlashMeeting(meeting)}
-                />
-              );
-            })}
-          </>
         )}
       </Stack>
     );
