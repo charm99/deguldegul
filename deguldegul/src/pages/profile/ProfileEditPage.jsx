@@ -24,10 +24,10 @@ function ProfileEditPage() {
   const { profile } = useAuth();
 
   const [form, setForm] = useState({
-    nickname: "",
     phone_no: "",
-    hand: "R",
-    bwl_tp: "SPT",
+    car_no: "",
+    hand: "",
+    bwl_tp: "",
   });
 
   const [message, setMessage] = useState("");
@@ -36,10 +36,10 @@ function ProfileEditPage() {
     if (!profile) return;
 
     setForm({
-      nickname: profile.nickname || "",
       phone_no: profile.phone_no || "",
-      hand: profile.hand || "R",
-      bwl_tp: profile.bwl_tp || "SPT",
+      car_no: profile.car_no || "",
+      hand: profile.hand || "",
+      bwl_tp: profile.bwl_tp || "",
     });
   }, [profile]);
 
@@ -53,18 +53,13 @@ function ProfileEditPage() {
   const handleSave = async () => {
     setMessage("");
 
-    if (!form.nickname.trim()) {
-      alert("닉네임을 입력해주세요.");
-      return;
-    }
-
     const { error } = await supabase
       .from("degul_users")
       .update({
-        nickname: form.nickname.trim(),
-        phone_no: form.phone_no.trim(),
-        hand: form.hand,
-        bwl_tp: form.bwl_tp,
+        phone_no: form.phone_no.trim() || null,
+        car_no: form.car_no.trim() || null,
+        hand: form.hand || null,
+        bwl_tp: form.bwl_tp || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", profile.id);
@@ -115,8 +110,16 @@ function ProfileEditPage() {
 
             <TextField
               label="닉네임"
-              value={form.nickname}
-              onChange={(e) => handleChange("nickname", e.target.value)}
+              value={profile?.nickname || ""}
+              disabled
+              fullWidth
+            />
+
+            <TextField
+              label="차량번호"
+              value={form.car_no}
+              onChange={(e) => handleChange("car_no", e.target.value.toUpperCase())}
+              placeholder="123가4567"
               fullWidth
             />
 
@@ -146,10 +149,12 @@ function ProfileEditPage() {
               onChange={(e) => handleChange("bwl_tp", e.target.value)}
               fullWidth
             >
+              <MenuItem value="NON">없음(초보)</MenuItem>
               <MenuItem value="SPT">아대</MenuItem>
               <MenuItem value="THR">3핑거</MenuItem>
               <MenuItem value="TLS">덤리스</MenuItem>
               <MenuItem value="THD">투핸드</MenuItem>
+              <MenuItem value="BCK">백업</MenuItem>
             </TextField>
 
             <Button variant="contained" size="large" onClick={handleSave}>
