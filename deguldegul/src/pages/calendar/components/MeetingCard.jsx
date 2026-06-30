@@ -133,7 +133,13 @@ function MeetingCard({
             <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 1 }}>
               <PaidOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
               <Typography variant="body2" color="text.secondary">
-                게임비 {Number(meeting.center.game_cost).toLocaleString()}원
+                게임비{" "}
+                {(
+                  Number(meeting.center.game_cost) *
+                  (meeting.meeting_tp === "REG" ? 4 : 1)
+                ).toLocaleString()}
+                원
+                {meeting.meeting_tp === "REG" ? " (4게임)" : " (1게임)"}
               </Typography>
             </Stack>
           )}
