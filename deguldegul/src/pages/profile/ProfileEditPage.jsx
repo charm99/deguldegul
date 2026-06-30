@@ -28,6 +28,8 @@ function ProfileEditPage() {
     car_no: "",
     hand: "",
     bwl_tp: "",
+    newPassword: "",
+    newPasswordConfirm: "",
   });
 
   const [message, setMessage] = useState("");
@@ -40,6 +42,8 @@ function ProfileEditPage() {
       car_no: profile.car_no || "",
       hand: profile.hand || "",
       bwl_tp: profile.bwl_tp || "",
+      newPassword: "",
+      newPasswordConfirm: "",
     });
   }, [profile]);
 
@@ -52,6 +56,27 @@ function ProfileEditPage() {
 
   const handleSave = async () => {
     setMessage("");
+
+      if (form.newPassword || form.newPasswordConfirm) {
+        if (form.newPassword.length < 6) {
+          alert("새 비밀번호는 6자리 이상 입력해주세요.");
+          return;
+        }
+    
+        if (form.newPassword !== form.newPasswordConfirm) {
+          alert("새 비밀번호가 일치하지 않습니다.");
+          return;
+        }
+    
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: form.newPassword,
+        });
+    
+        if (passwordError) {
+          setMessage(passwordError.message);
+          return;
+        }
+      }
 
     const { error } = await supabase
       .from("degul_users")
@@ -156,6 +181,24 @@ function ProfileEditPage() {
               <MenuItem value="THD">투핸드</MenuItem>
               <MenuItem value="BCK">백업</MenuItem>
             </TextField>
+
+            <TextField
+              label="새 비밀번호"
+              type="password"
+              value={form.newPassword}
+              onChange={(e) => handleChange("newPassword", e.target.value)}
+              placeholder="변경할 경우에만 입력"
+              fullWidth
+            />
+            
+            <TextField
+              label="새 비밀번호 확인"
+              type="password"
+              value={form.newPasswordConfirm}
+              onChange={(e) => handleChange("newPasswordConfirm", e.target.value)}
+              placeholder="변경할 경우에만 입력"
+              fullWidth
+            />
 
             <Button variant="contained" size="large" onClick={handleSave}>
               저장
