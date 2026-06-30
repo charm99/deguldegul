@@ -245,10 +245,12 @@ function SignupPage() {
           onChange={(e) => handleChange("bwl_tp", e.target.value)}
           fullWidth
         >
+          <MenuItem value="NON">없음(초보)</MenuItem>
           <MenuItem value="SPT">아대</MenuItem>
           <MenuItem value="THR">3핑거</MenuItem>
           <MenuItem value="TLS">덤리스</MenuItem>
           <MenuItem value="THD">투핸드</MenuItem>
+          <MenuItem value="BCK">백업</MenuItem>
         </TextField>
 
         <Box>
