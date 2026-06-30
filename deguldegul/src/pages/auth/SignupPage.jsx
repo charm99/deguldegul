@@ -28,9 +28,9 @@ function SignupPage() {
     password: "",
     passwordConfirm: "",
     name: "",
-    nickname: "",
     birthday: "",
     phone_no: "",
+    car_no: "",
     gender: "M",
     hand: "R",
     bwl_tp: "SPT",
@@ -74,11 +74,6 @@ function SignupPage() {
 
     if (!form.name.trim()) {
       alert("이름을 입력해주세요.");
-      return false;
-    }
-
-    if (!form.nickname.trim()) {
-      alert("닉네임을 입력해주세요.");
       return false;
     }
 
@@ -126,9 +121,9 @@ function SignupPage() {
       id: userId,
       email: form.email.trim(),
       name: form.name.trim(),
-      nickname: form.nickname.trim(),
       birthday: form.birthday,
       phone_no: form.phone_no.trim(),
+      car_no: form.car_no.trim(),
       gender: form.gender,
       hand: form.hand,
       bwl_tp: form.bwl_tp,
@@ -190,13 +185,6 @@ function SignupPage() {
         />
 
         <TextField
-          label="닉네임"
-          value={form.nickname}
-          onChange={(e) => handleChange("nickname", e.target.value)}
-          fullWidth
-        />
-
-        <TextField
           label="생년월일"
           type="date"
           value={form.birthday}
@@ -214,6 +202,13 @@ function SignupPage() {
           value={form.phone_no}
           onChange={(e) => handleChange("phone_no", e.target.value)}
           placeholder="01012345678"
+          fullWidth
+        />
+
+        <TextField
+          label="차량번호"
+          value={form.car_no}
+          onChange={(e) => handleChange("car_no", e.target.value)}
           fullWidth
         />
 
