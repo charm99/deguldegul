@@ -116,11 +116,15 @@ function SignupPage() {
       setMessage("회원가입 처리 중 오류가 발생했습니다.");
       return;
     }
+    const birthYear = form.birthday.substring(2, 4);
+
+    const p_nickname = `${form.name.trim()}(${birthYear})`;
 
     const { error: profileError } = await supabase.from("degul_users").insert({
       id: userId,
       email: form.email.trim(),
       name: form.name.trim(),
+      nickname: p_nickname,
       birthday: form.birthday,
       phone_no: form.phone_no.trim(),
       car_no: form.car_no.trim(),
