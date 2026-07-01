@@ -12,8 +12,9 @@ import {
   CardContent,
   TextField,
   Divider,
+  Dialog,
 } from "@mui/material";
-
+import LinkIcon from "@mui/icons-material/Link";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -41,6 +42,9 @@ function BoardDetailPage() {
   const isAdmin = ["ADM", "MGR"].includes(profile?.role);
   const isWriter = board?.writer_id === profile?.id;
   const canEdit = isAdmin || isWriter;
+
+  const [imageOpen, setImageOpen] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
 
   const loadBoard = async () => {
     setMessage("");
@@ -125,148 +129,222 @@ function BoardDetailPage() {
   }
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-        <IconButton onClick={() => navigate(-1)}>
-          <ArrowBackIcon />
-        </IconButton>
+  <Box sx={{ p: 2 }}>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+      <IconButton onClick={() => navigate(-1)}>
+        <ArrowBackIcon />
+      </IconButton>
 
-        <Typography variant="h6" fontWeight={800} sx={{ flex: 1 }}>
-          게시글
-        </Typography>
+      <Typography variant="h6" fontWeight={800} sx={{ flex: 1 }}>
+        게시글
+      </Typography>
 
-        {canEdit && (
-          <Button
-            size="small"
-            onClick={() => navigate(`/board/edit/${boardId}?type=${board.board_tp}`)}
-          >
-            수정
-          </Button>
-        )}
-
-        {canEdit && (
-          <IconButton color="error" onClick={handleDeleteBoard}>
-            <DeleteIcon />
-          </IconButton>
-        )}
-      </Stack>
-
-      {message && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {message}
-        </Alert>
+      {canEdit && (
+        <Button
+          size="small"
+          onClick={() => navigate(`/board/edit/${boardId}?type=${board.board_tp}`)}
+        >
+          수정
+        </Button>
       )}
 
-      {board && (
-        <>
-          <Card sx={{ borderRadius: 3, mb: 2 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={800}>
-                {board.title}
-              </Typography>
+      {canEdit && (
+        <IconButton color="error" onClick={handleDeleteBoard}>
+          <DeleteIcon />
+        </IconButton>
+      )}
+    </Stack>
 
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {board.writer?.nickname || board.writer?.name || "-"} ·{" "}
-                {formatDateTime(board.created_at)} · 조회 {board.view_cnt}
-              </Typography>
+    {message && (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {message}
+      </Alert>
+    )}
 
-              <Divider sx={{ my: 2 }} />
+    {board && (
+      <>
+        <Card sx={{ borderRadius: 3, mb: 2, textAlign: "left" }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={800} textAlign="left">
+              {board.title}
+            </Typography>
 
-              <Typography sx={{ whiteSpace: "pre-wrap" }}>
-                {board.content}
-              </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {board.writer?.nickname || board.writer?.name || "-"} ·{" "}
+              {formatDateTime(board.created_at)} · 조회 {board.view_cnt}
+            </Typography>
 
-              {board.files?.length > 0 && (
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
-                  {board.files.map((file) => (
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ textAlign: "left" }}>{renderContent(board.content)}</Box>
+
+            {board.files?.length > 0 && (
+              <Stack spacing={1.5} sx={{ mt: 2 }}>
+                {board.files.map((file) => {
+                  const imageUrl = getBoardFileUrl(file.file_path);
+
+                  return (
                     <Box
                       key={file.file_id}
                       component="img"
-                      src={getBoardFileUrl(file.file_path)}
+                      src={imageUrl}
                       alt={file.file_name}
+                      onClick={() => {
+                        setSelectedImageUrl(imageUrl);
+                        setImageOpen(true);
+                      }}
                       sx={{
                         width: "100%",
+                        maxHeight: 340,
                         borderRadius: 2,
                         objectFit: "cover",
+                        cursor: "pointer",
                       }}
                     />
-                  ))}
-                </Stack>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography fontWeight={800} sx={{ mb: 1 }}>
-                댓글 {comments.length}
-              </Typography>
-
-              <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                <TextField
-                  size="small"
-                  placeholder="댓글을 입력하세요"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  fullWidth
-                />
-                <Button variant="contained" onClick={handleAddComment}>
-                  등록
-                </Button>
-              </Stack>
-
-              <Stack spacing={1.5}>
-                {comments.map((comment) => {
-                  const canDeleteComment =
-                    isAdmin || comment.writer_id === profile?.id;
-
-                  return (
-                    <Box key={comment.comment_id}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography fontWeight={800} variant="body2">
-                          {comment.writer?.nickname ||
-                            comment.writer?.name ||
-                            "-"}
-                        </Typography>
-
-                        {canDeleteComment && (
-                          <Button
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteComment(comment.comment_id)}
-                          >
-                            삭제
-                          </Button>
-                        )}
-                      </Stack>
-
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                        {comment.content}
-                      </Typography>
-
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDateTime(comment.created_at)}
-                      </Typography>
-
-                      <Divider sx={{ mt: 1 }} />
-                    </Box>
                   );
                 })}
-
-                {comments.length === 0 && (
-                  <Typography color="text.secondary" textAlign="center">
-                    댓글이 없습니다.
-                  </Typography>
-                )}
               </Stack>
-            </CardContent>
-          </Card>
-        </>
-      )}
-    </Box>
-  );
-}
+            )}
+          </CardContent>
+        </Card>
 
+        <Card sx={{ borderRadius: 3, textAlign: "left" }}>
+          <CardContent>
+            <Typography fontWeight={800} sx={{ mb: 1 }}>
+              댓글 {comments.length}
+            </Typography>
+
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              <TextField
+                size="small"
+                placeholder="댓글을 입력하세요"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                fullWidth
+              />
+              <Button variant="contained" onClick={handleAddComment}>
+                등록
+              </Button>
+            </Stack>
+
+            <Stack spacing={1.5}>
+              {comments.map((comment) => {
+                const canDeleteComment =
+                  isAdmin || comment.writer_id === profile?.id;
+
+                return (
+                  <Box key={comment.comment_id}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography fontWeight={800} variant="body2">
+                        {comment.writer?.nickname || comment.writer?.name || "-"}
+                      </Typography>
+
+                      {canDeleteComment && (
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteComment(comment.comment_id)}
+                        >
+                          삭제
+                        </Button>
+                      )}
+                    </Stack>
+
+                    <Typography
+                      variant="body2"
+                      sx={{ whiteSpace: "pre-wrap", textAlign: "left" }}
+                    >
+                      {comment.content}
+                    </Typography>
+
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDateTime(comment.created_at)}
+                    </Typography>
+
+                    <Divider sx={{ mt: 1 }} />
+                  </Box>
+                );
+              })}
+
+              {comments.length === 0 && (
+                <Typography color="text.secondary" textAlign="center">
+                  댓글이 없습니다.
+                </Typography>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        <Dialog
+          open={imageOpen}
+          onClose={() => setImageOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <Box
+            component="img"
+            src={selectedImageUrl}
+            alt="확대 이미지"
+            onClick={() => setImageOpen(false)}
+            sx={{
+              width: "100%",
+              maxHeight: "85vh",
+              objectFit: "contain",
+              bgcolor: "#000",
+              cursor: "pointer",
+            }}
+          />
+        </Dialog>
+      </>
+    )}
+  </Box>
+);
+}
+function renderContent(text) {
+  if (!text) return null;
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  return text.split("\n").map((line, lineIndex) => (
+    <Typography
+      key={lineIndex}
+      sx={{
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        lineHeight: 1.8,
+        mb: 0.5,
+      }}
+    >
+      {line.split(urlRegex).map((part, index) => {
+        if (part.match(urlRegex)) {
+          return (
+            <Button
+              key={index}
+              component="a"
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="small"
+              variant="text"
+              startIcon={<LinkIcon />}
+              sx={{
+                p: 0,
+                minWidth: 0,
+                textTransform: "none",
+                fontWeight: 700,
+                verticalAlign: "baseline",
+              }}
+            >
+              링크 열기
+            </Button>
+          );
+        }
+
+        return part;
+      })}
+    </Typography>
+  ));
+}
 function formatDateTime(value) {
   if (!value) return "-";
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import {
   Box,
   Typography,
@@ -14,7 +13,7 @@ import {
   Alert,
   Fab,
 } from "@mui/material";
-
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import { getBoards } from "../../services/boardService";
 import { useAuth } from "../../contexts/AuthContext";
@@ -84,26 +83,49 @@ function BoardPage() {
           boards.map((board) => (
             <Card
               key={board.board_id}
-              sx={{ borderRadius: 3, cursor: "pointer" }}
+              sx={{
+                borderRadius: 3,
+                cursor: "pointer",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                textAlign: "left",
+              }}
               onClick={() => navigate(`/board/${board.board_id}`)}
             >
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" spacing={1}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography fontWeight={800} noWrap>
-                      {board.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {board.writer?.nickname || board.writer?.name || "-"} ·{" "}
-                      {formatDate(board.created_at)}
-                    </Typography>
-                  </Box>
+              <CardContent sx={{ p: 2 }}>
+                <Typography
+                  fontWeight={800}
+                  fontSize={18}
+                  sx={{
+                    wordBreak: "break-word",
+                    mb: 1.2,
+                    textAlign: "left",
+                  }}
+                >
+                  {board.title}
+                </Typography>
 
-                  <Chip
-                    label={`조회 ${board.view_cnt}`}
-                    size="small"
-                    variant="outlined"
-                  />
+                <Stack direction="row" alignItems="center" sx={{ width: "100%" }}>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {board.writer?.nickname || board.writer?.name || "-"}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mx: 0.8 }}>
+                    ·
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {formatDate(board.created_at)}
+                  </Typography>
+
+                  <Box sx={{ flex: 1 }} />
+
+                  <Stack direction="row" spacing={0.4} alignItems="center">
+                    <VisibilityOutlinedIcon sx={{ fontSize: 17, color: "text.secondary" }} />
+
+                    <Typography variant="body2" color="text.secondary" fontWeight={700}>
+                      {board.view_cnt}
+                    </Typography>
+                  </Stack>
                 </Stack>
               </CardContent>
             </Card>

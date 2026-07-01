@@ -1,34 +1,72 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 
 import {
   Container,
   Button,
-  Typography,
   Stack,
   TextField,
   Alert,
-  Box
+  Box,
+  CircularProgress,
 } from "@mui/material";
 
 import { supabase } from "../../services/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { authUser, profile, loading, refreshSession } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (loading) return;
+    if (!authUser) return;
+
+    if (!profile) {
+      navigate("/complete-profile", { replace: true });
+      return;
+    }
+
+    if (profile.status === "PND") {
+      setMessage("관리자 승인 대기중입니다.");
+      supabase.auth.signOut();
+      return;
+    }
+
+    if (profile.status === "REJ") {
+      setMessage("가입이 거절된 계정입니다.");
+      supabase.auth.signOut();
+      return;
+    }
+
+    if (profile.status === "SLP") {
+      setMessage("휴면 계정입니다.");
+      supabase.auth.signOut();
+      return;
+    }
+
+    if (profile.status !== "ACT") {
+      setMessage("사용할 수 없는 계정 상태입니다.");
+      supabase.auth.signOut();
+      return;
+    }
+
+    navigate("/home", { replace: true });
+  }, [authUser, profile, loading, navigate]);
 
   const handleLogin = async () => {
     try {
-      setLoading(true);
+      setLoginLoading(true);
       setMessage("");
 
-      if (!email) {
+      if (!email.trim()) {
         setMessage("이메일을 입력해주세요.");
         return;
       }
@@ -38,8 +76,8 @@ function LoginPage() {
         return;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
       });
 
@@ -47,57 +85,29 @@ function LoginPage() {
         throw error;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("degul_users")
-        .select("*")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      if (!profile) {
-        navigate("/complete-profile");
-        return;
-      }
-
-      if (profile.status === "PND") {
-        setMessage("관리자 승인 대기중입니다.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.status === "REJ") {
-        setMessage("가입이 거절된 계정입니다.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.status === "SLP") {
-        setMessage("휴면 계정입니다.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.status !== "ACT") {
-        setMessage("사용할 수 없는 계정 상태입니다.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      navigate("/home");
+      // 세션 생성 직후 profile을 한 번 강제로 로드
+      await refreshSession();
     } catch (error) {
       console.error(error);
       setMessage(error.message || "로그인 중 오류가 발생했습니다.");
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <Container maxWidth="sm">
+        <Stack spacing={2} alignItems="center" sx={{ mt: 16 }}>
+          <CircularProgress />
+        </Stack>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="sm">
-      <Stack spacing={2} sx={{ mt: 12, alignItems: "center", }}>
+      <Stack spacing={2} sx={{ mt: 12, alignItems: "center" }}>
         <Box
           component="img"
           src={logo}
@@ -126,6 +136,9 @@ function LoginPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleLogin();
+          }}
           fullWidth
         />
 
@@ -133,7 +146,7 @@ function LoginPage() {
           variant="contained"
           size="large"
           onClick={handleLogin}
-          disabled={loading}
+          disabled={loginLoading}
           fullWidth
         >
           로그인

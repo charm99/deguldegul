@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../services/supabase";
 
 const AuthContext = createContext(null);
@@ -8,10 +8,10 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (user) => {
-    if (!user) {
+  const loadProfile = useCallback(async (user) => {
+    if (!user?.id) {
       setProfile(null);
-      return;
+      return null;
     }
 
     const { data, error } = await supabase
@@ -23,41 +23,71 @@ export function AuthProvider({ children }) {
     if (error) {
       console.error("profile load error:", error);
       setProfile(null);
-      return;
+      return null;
     }
 
-    setProfile(data);
-  };
+    setProfile(data || null);
+    return data || null;
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    setLoading(true);
+
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("session load error:", error);
+      setAuthUser(null);
+      setProfile(null);
+      setLoading(false);
+      return null;
+    }
+
+    const user = session?.user ?? null;
+    setAuthUser(user);
+
+    const loadedProfile = await loadProfile(user);
+
+    setLoading(false);
+
+    return {
+      user,
+      profile: loadedProfile,
+    };
+  }, [loadProfile]);
 
   useEffect(() => {
-    const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user ?? null;
-
-      setAuthUser(user);
-      await loadProfile(user);
-      setLoading(false);
-    };
-
-    init();
+    refreshSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const user = session?.user ?? null;
 
+      setLoading(true);
       setAuthUser(user);
-      await loadProfile(user);
-      setLoading(false);
+
+      setTimeout(async () => {
+        await loadProfile(user);
+        setLoading(false);
+      }, 0);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshSession, loadProfile]);
+
+  const logout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setAuthUser(null);
+    setProfile(null);
+    setLoading(false);
+  };
 
   return (
     <AuthContext.Provider
@@ -67,6 +97,8 @@ export function AuthProvider({ children }) {
         loading,
         isLoggedIn: !!authUser,
         reloadProfile: () => loadProfile(authUser),
+        refreshSession,
+        logout,
       }}
     >
       {children}

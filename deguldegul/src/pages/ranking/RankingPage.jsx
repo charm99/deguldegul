@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import {
   Avatar,
   Box,
@@ -22,8 +22,8 @@ import { useAuth } from "../../contexts/AuthContext";
 
 function RankingPage() {
   const [tab, setTab] = useState(0);
-  const [rankingRange, setRankingRange] = useState("MONTHLY");
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const [rankingRange, setRankingRange] = useState("YEARLY");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   return (
     <Box sx={{ p: 2, minHeight: "calc(100vh - 80px)" }}>
@@ -48,8 +48,8 @@ function RankingPage() {
         <RankingView
           rankingRange={rankingRange}
           setRankingRange={setRankingRange}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
         />
       )}
 
@@ -71,7 +71,7 @@ function PersonalStatsView() {
     attendance_rate: 0,
   });
 
-  const [monthlyAvgData, setMonthlyAvgData] = useState([]);
+  const [yearlyAvgData, setYearlyAvgData] = useState([]);
   const [recentGames, setRecentGames] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
   const [message, setMessage] = useState("");
@@ -88,17 +88,17 @@ function PersonalStatsView() {
 
     setMyStats(statData?.[0] || myStats);
 
-    const { data: monthData, error: monthError } = await supabase.rpc(
+    const { data: yearData, error: yearError } = await supabase.rpc(
       "get_my_monthly_avg",
       { p_year: year }
     );
 
-    if (monthError) {
-      setMessage(monthError.message);
+    if (yearError) {
+      setMessage(yearError.message);
       return;
     }
 
-    setMonthlyAvgData(monthData || []);
+    setYearlyAvgData(yearData || []);
 
     const { data: recentData, error: recentError } = await supabase.rpc(
       "get_my_recent_games",
@@ -146,7 +146,7 @@ function PersonalStatsView() {
               {(profile?.nickname || profile?.name || "회").slice(0, 1)}
             </Avatar>
 
-            <Box>
+            <Box sx={{ textAlign: "left" }}>
               <Typography variant="h5" fontWeight={900}>
                 {profile?.nickname || profile?.name || "회원"}
               </Typography>
@@ -176,13 +176,12 @@ function PersonalStatsView() {
 
       <Card sx={cardSx}>
         <CardContent>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ mb: 2 }}
-          >
-            <Typography fontWeight={800}>월별 평균 점수</Typography>
+          <Stack direction="row" alignItems="center" sx={{ mb: 2 }}>
+            <Typography fontWeight={800}>
+              월별 평균 점수
+            </Typography>
+
+            <Box sx={{ flex: 1 }} />
 
             <Select
               size="small"
@@ -202,18 +201,29 @@ function PersonalStatsView() {
             </Select>
           </Stack>
 
-          <MonthlyBarChart data={monthlyAvgData} />
+          <YearlyBarChart data={yearlyAvgData} />
         </CardContent>
       </Card>
 
       <Card sx={cardSx}>
         <CardContent>
-          <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography fontWeight={800}>최근 게임 기록</Typography>
+          <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
+            <Typography fontWeight={800}>
+              최근 게임 기록
+            </Typography>
+
+            <Box sx={{ flex: 1 }} />
+
             <Button
               size="small"
+              endIcon={<ChevronRightIcon />}
               onClick={() => navigate("/ranking/my-records")}
-              sx={{ fontWeight: 800 }}
+              sx={{
+                color: "text.secondary",
+                fontWeight: 800,
+                minWidth: 0,
+                p: 0,
+              }}
             >
               더보기
             </Button>
@@ -267,8 +277,8 @@ function PersonalStatsView() {
 function RankingView({
   rankingRange,
   setRankingRange,
-  selectedMonth,
-  setSelectedMonth,
+  selectedYear,
+  setSelectedYear,
 }) {
   const [scoreRanking, setScoreRanking] = useState([]);
   const [attendanceRanking, setAttendanceRanking] = useState([]);
@@ -297,7 +307,7 @@ function RankingView({
       "get_score_ranking",
       {
         p_range: rankingRange,
-        p_month: selectedMonth,
+        p_year: selectedYear,
       }
     );
 
@@ -312,7 +322,7 @@ function RankingView({
       "get_attendance_ranking",
       {
         p_range: rankingRange,
-        p_month: selectedMonth,
+        p_year: selectedYear,
       }
     );
 
@@ -326,7 +336,7 @@ function RankingView({
 
   useEffect(() => {
     loadRanking();
-  }, [rankingRange, selectedMonth]);
+  }, [rankingRange, selectedYear]);
 
   return (
     <Stack spacing={2}>
@@ -343,9 +353,9 @@ function RankingView({
           }}
         >
           <RangeButton
-            active={rankingRange === "MONTHLY"}
+            active={rankingRange === "YEARLY"}
             label="점수 랭킹"
-            onClick={() => setRankingRange("MONTHLY")}
+            onClick={() => setRankingRange("YEARLY")}
           />
           <RangeButton
             active={rankingRange === "TOTAL"}
@@ -356,25 +366,25 @@ function RankingView({
 
         <Select
           size="small"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
           sx={{
             height: 36,
             minWidth: 116,
             borderRadius: 2,
             fontSize: 13,
-            display: rankingRange === "MONTHLY" ? "block" : "none",
+            display: rankingRange === "YEARLY" ? "block" : "none",
           }}
         >
-          {getMonthOptions().map((item) => (
-            <MenuItem key={item.value} value={item.value}>
-              {item.label}
+          {getYearOptions().map((item) => (
+            <MenuItem key={item} value={item}>
+              {item}년
             </MenuItem>
           ))}
         </Select>
       </Stack>
 
-      {rankingRange === "MONTHLY" ? (
+      {rankingRange === "YEARLY" ? (
         <>
           <Stack
             direction="row"
@@ -638,7 +648,7 @@ function RankingTableCard({ title, columns, rows }) {
   );
 }
 
-function MonthlyBarChart({ data }) {
+function YearlyBarChart({ data }) {
   if (!data || data.length === 0) {
     return (
       <Typography color="text.secondary" textAlign="center" sx={{ py: 5 }}>
@@ -666,7 +676,7 @@ function MonthlyBarChart({ data }) {
         const height = Math.max((score / maxScore) * 150, 24);
 
         return (
-          <Box key={item.month_no} sx={{ flex: 1, textAlign: "center" }}>
+          <Box key={item.year_no} sx={{ flex: 1, textAlign: "center" }}>
             <Typography variant="caption" fontWeight={700}>
               {score.toFixed(1)}
             </Typography>
@@ -687,7 +697,7 @@ function MonthlyBarChart({ data }) {
               color="text.secondary"
               sx={{ display: "block", mt: 1 }}
             >
-              {item.month_label}
+              {item.year_label}
             </Typography>
           </Box>
         );
@@ -698,12 +708,24 @@ function MonthlyBarChart({ data }) {
 
 function StatRow({ label, value, highlight = false, last = false }) {
   return (
-    <Box>
-      <Stack direction="row" justifyContent="space-between" sx={{ px: 2, py: 1.6 }}>
-        <Typography color="text.secondary">{label}</Typography>
+    <Box sx={{ textAlign: "left" }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        sx={{ px: 2, py: 1.6 }}
+      >
+        <Typography
+          color="text.secondary"
+          fontWeight={700}
+          sx={{ flex: 1, textAlign: "left" }}
+        >
+          {label}
+        </Typography>
+
         <Typography
           fontWeight={900}
           color={highlight ? "primary.main" : "text.primary"}
+          sx={{ textAlign: "right" }}
         >
           {value}
         </Typography>

@@ -2,6 +2,7 @@ import { Box, Typography, Card, CardContent, Stack, Avatar, Button, List, ListIt
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../services/supabase";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 function ProfilePage() {
   const navigate = useNavigate();
@@ -23,22 +24,51 @@ function ProfilePage() {
       <Card sx={{ borderRadius: 3, mb: 2 }}>
         <CardContent>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar sx={{ width: 58, height: 58, fontWeight: 900 }}>
+            <Avatar
+              sx={{
+                width: 58,
+                height: 58,
+                fontWeight: 900,
+                flexShrink: 0,
+              }}
+            >
               {(profile?.nickname || profile?.name || "회").slice(0, 1)}
             </Avatar>
 
-            <Box sx={{ flex: 1 }}>
-              <Typography fontWeight={900}>
+            <Box
+              sx={{
+                flex: 1,
+                textAlign: "left",
+                minWidth: 0,
+              }}
+            >
+              <Typography
+                fontWeight={900}
+                noWrap
+              >
                 {profile?.nickname || profile?.name || "회원"}
               </Typography>
 
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+              >
                 {profile?.email}
               </Typography>
 
-              <Typography variant="caption" color="text.secondary">
-                가입일 {profile?.join_date || "-"}
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.3 }}>
+                <CalendarMonthIcon
+                  sx={{
+                    fontSize: 15,
+                    color: "text.secondary",
+                  }}
+                />
+
+                <Typography variant="caption" color="text.secondary">
+                  가입일 {profile?.join_date || "-"}
+                </Typography>
+              </Stack>
             </Box>
           </Stack>
 
