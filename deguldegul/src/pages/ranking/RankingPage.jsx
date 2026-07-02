@@ -456,8 +456,8 @@ function BattleRankingView() {
 
   const sortedRows = useMemo(() => {
     return [...battleRanking].sort((a, b) => {
-      const aPoint = calcBattlePoint(a);
-      const bPoint = calcBattlePoint(b);
+      const aPoint = a.point;
+      const bPoint = b.point;
 
       if (sortKey === "point") return bPoint - aPoint;
       if (sortKey === "battle_count") return b.battle_count - a.battle_count;
@@ -552,7 +552,7 @@ function BattleRankingGrid({ rows }) {
               >
                 <GridCell bold>{index + 1}</GridCell>
                 <GridCell bold>{item.nickname || item.user_nm}</GridCell>
-                <GridCell bold>{calcBattlePoint(item)}</GridCell>
+                <GridCell bold>{item.point}</GridCell>
                 <GridCell>{item.battle_count}</GridCell>
                 <GridCell>{item.win_count}</GridCell>
                 <GridCell>{item.lose_count}</GridCell>
@@ -764,10 +764,6 @@ function GridCell({ children, bold = false }) {
       {children}
     </Typography>
   );
-}
-
-function calcBattlePoint(item) {
-  return Number(item.win_count || 0) * 20 + Number(item.lose_count || 0) * -10;
 }
 
 function formatNumber(value, digits = 0) {
