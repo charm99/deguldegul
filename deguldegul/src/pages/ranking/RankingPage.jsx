@@ -767,7 +767,7 @@ function GridCell({ children, bold = false }) {
 }
 
 function calcBattlePoint(item) {
-  return Number(item.win_count || 0) * 20 + Number(item.lose_count || 0) * 10;
+  return Number(item.win_count || 0) * 20 + Number(item.lose_count || 0) * -10;
 }
 
 function formatNumber(value, digits = 0) {
