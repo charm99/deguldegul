@@ -28,8 +28,12 @@ function UserManagePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [onlyUse, setOnlyUse] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [myRole, setMyRole] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
+
+  const canAccess = ["ADM", "MGR"].includes(myRole);
+  const canSeePhone = myRole === "ADM";
 
   const pendingUsers = useMemo(
     () => users.filter((user) => user.status === "PND"),
@@ -51,8 +55,10 @@ function UserManagePage() {
     });
   }, [users, onlyUse]);
 
-  const checkAdmin = async () => {
+  const checkManagerAuth = async () => {
     try {
+      setMessage("");
+
       const {
         data: { user },
         error: authError,
@@ -73,13 +79,13 @@ function UserManagePage() {
 
       if (error) throw error;
 
-      if (data?.role !== "ADM") {
-        alert("회원관리는 관리자만 접근할 수 있습니다.");
+      if (!["ADM", "MGR"].includes(data?.role)) {
+        alert("회원관리는 관리자 또는 담당자만 접근할 수 있습니다.");
         navigate("/admin");
         return;
       }
 
-      setIsAdmin(true);
+      setMyRole(data.role);
       await loadUsers();
     } catch (error) {
       console.error(error);
@@ -125,7 +131,7 @@ function UserManagePage() {
   };
 
   useEffect(() => {
-    checkAdmin();
+    checkManagerAuth();
   }, []);
 
   if (!authChecked) {
@@ -136,7 +142,7 @@ function UserManagePage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return null;
   }
 
@@ -203,7 +209,7 @@ function UserManagePage() {
                         {user.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" noWrap>
-                        {user.nickname} · {user.email}
+                        {user.nickname} · {user.email || "-"}
                       </Typography>
                     </Box>
 
@@ -241,11 +247,16 @@ function UserManagePage() {
             <Typography color="text.secondary">불러오는 중...</Typography>
           ) : (
             <Box sx={{ overflowX: "auto" }}>
-              <Box sx={{ minWidth: 1040 }}>
-                <GridHeader />
+              <Box sx={{ minWidth: canSeePhone ? 1040 : 920 }}>
+                <GridHeader canSeePhone={canSeePhone} />
 
                 {filteredUsers.map((user) => (
-                  <GridRow key={user.id} user={user} onUpdate={updateUser} />
+                  <GridRow
+                    key={user.id}
+                    user={user}
+                    onUpdate={updateUser}
+                    canSeePhone={canSeePhone}
+                  />
                 ))}
               </Box>
             </Box>
@@ -256,31 +267,34 @@ function UserManagePage() {
   );
 }
 
-function GridHeader() {
+function GridHeader({ canSeePhone }) {
+  const columns = [
+    "이름",
+    "닉네임",
+    "이메일",
+    ...(canSeePhone ? ["전화번호"] : []),
+    "차량번호",
+    "상태",
+    "역할",
+    "손",
+    "투구",
+    "가입일",
+  ];
+
   return (
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns:
-          "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px",
+        gridTemplateColumns: canSeePhone
+          ? "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px"
+          : "80px 100px 170px 110px 70px 90px 80px 80px 90px",
         py: 1,
         px: 1,
         bgcolor: "#f5f6fa",
         borderRadius: 2,
       }}
     >
-      {[
-        "이름",
-        "닉네임",
-        "이메일",
-        "전화번호",
-        "차량번호",
-        "상태",
-        "역할",
-        "손",
-        "투구",
-        "가입일",
-      ].map((label) => (
+      {columns.map((label) => (
         <Typography
           key={label}
           variant="caption"
@@ -294,13 +308,14 @@ function GridHeader() {
   );
 }
 
-function GridRow({ user, onUpdate }) {
+function GridRow({ user, onUpdate, canSeePhone }) {
   return (
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns:
-          "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px",
+        gridTemplateColumns: canSeePhone
+          ? "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px"
+          : "80px 100px 170px 110px 70px 90px 80px 80px 90px",
         alignItems: "center",
         py: 1,
         px: 1,
@@ -319,9 +334,11 @@ function GridRow({ user, onUpdate }) {
         {user.email || "-"}
       </Typography>
 
-      <Typography variant="body2" color="text.secondary" noWrap>
-        {user.phone_no || "-"}
-      </Typography>
+      {canSeePhone && (
+        <Typography variant="body2" color="text.secondary" noWrap>
+          {user.phone_no || "-"}
+        </Typography>
+      )}
 
       <Typography variant="body2" color="text.secondary" noWrap>
         {user.car_no || "-"}
