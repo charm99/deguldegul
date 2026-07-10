@@ -28,6 +28,8 @@ function UserManagePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [onlyUse, setOnlyUse] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const pendingUsers = useMemo(
     () => users.filter((user) => user.status === "PND"),
@@ -49,6 +51,44 @@ function UserManagePage() {
     });
   }, [users, onlyUse]);
 
+  const checkAdmin = async () => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("degul_users")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.role !== "ADM") {
+        alert("회원관리는 관리자만 접근할 수 있습니다.");
+        navigate("/admin");
+        return;
+      }
+
+      setIsAdmin(true);
+      await loadUsers();
+    } catch (error) {
+      console.error(error);
+      setMessage(error.message || "권한 확인 중 오류가 발생했습니다.");
+    } finally {
+      setAuthChecked(true);
+    }
+  };
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -59,9 +99,7 @@ function UserManagePage() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setUsers(data || []);
     } catch (error) {
@@ -87,8 +125,20 @@ function UserManagePage() {
   };
 
   useEffect(() => {
-    loadUsers();
+    checkAdmin();
   }, []);
+
+  if (!authChecked) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="text.secondary">권한 확인 중...</Typography>
+      </Box>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <Box sx={{ p: 2 }}>
@@ -191,15 +241,11 @@ function UserManagePage() {
             <Typography color="text.secondary">불러오는 중...</Typography>
           ) : (
             <Box sx={{ overflowX: "auto" }}>
-              <Box sx={{ minWidth: 780 }}>
+              <Box sx={{ minWidth: 1040 }}>
                 <GridHeader />
 
                 {filteredUsers.map((user) => (
-                  <GridRow
-                    key={user.id}
-                    user={user}
-                    onUpdate={updateUser}
-                  />
+                  <GridRow key={user.id} user={user} onUpdate={updateUser} />
                 ))}
               </Box>
             </Box>
@@ -215,25 +261,35 @@ function GridHeader() {
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: "90px 110px 180px 80px 90px 90px 90px 100px",
+        gridTemplateColumns:
+          "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px",
         py: 1,
         px: 1,
         bgcolor: "#f5f6fa",
         borderRadius: 2,
       }}
     >
-      {["이름", "닉네임", "이메일", "상태", "역할", "손", "투구", "가입일"].map(
-        (label) => (
-          <Typography
-            key={label}
-            variant="caption"
-            color="text.secondary"
-            fontWeight={800}
-          >
-            {label}
-          </Typography>
-        )
-      )}
+      {[
+        "이름",
+        "닉네임",
+        "이메일",
+        "전화번호",
+        "차량번호",
+        "상태",
+        "역할",
+        "손",
+        "투구",
+        "가입일",
+      ].map((label) => (
+        <Typography
+          key={label}
+          variant="caption"
+          color="text.secondary"
+          fontWeight={800}
+        >
+          {label}
+        </Typography>
+      ))}
     </Box>
   );
 }
@@ -243,7 +299,8 @@ function GridRow({ user, onUpdate }) {
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: "90px 110px 180px 80px 90px 90px 90px 100px",
+        gridTemplateColumns:
+          "80px 100px 170px 120px 110px 70px 90px 80px 80px 90px",
         alignItems: "center",
         py: 1,
         px: 1,
@@ -259,7 +316,15 @@ function GridRow({ user, onUpdate }) {
       </Typography>
 
       <Typography variant="body2" color="text.secondary" noWrap>
-        {user.email}
+        {user.email || "-"}
+      </Typography>
+
+      <Typography variant="body2" color="text.secondary" noWrap>
+        {user.phone_no || "-"}
+      </Typography>
+
+      <Typography variant="body2" color="text.secondary" noWrap>
+        {user.car_no || "-"}
       </Typography>
 
       <Chip
@@ -272,13 +337,13 @@ function GridRow({ user, onUpdate }) {
             : "default"
         }
         size="small"
-        sx={{ fontWeight: 700, width: 70 }}
+        sx={{ fontWeight: 700, width: 64 }}
       />
 
       <TextField
         select
         size="small"
-        value={user.role}
+        value={user.role || "MBR"}
         onChange={(e) => onUpdate(user.id, { role: e.target.value })}
         sx={{ width: 82 }}
       >
@@ -325,6 +390,7 @@ function getBowlTypeLabel(value) {
     THR: "3핑거",
     TLS: "덤리스",
     THD: "투핸드",
+    NON: "없음",
   };
 
   return map[value] || value || "-";
