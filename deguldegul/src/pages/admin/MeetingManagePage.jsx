@@ -103,7 +103,7 @@ function MeetingManagePage() {
       meeting_nm: form.meeting_nm.trim(),
       meeting_tp: form.meeting_tp,
       center_id: form.center_id,
-      meeting_dt: form.meeting_dt,
+      meeting_dt: koreanDateTimeLocalToUtcIso(form.meeting_dt),
       max_member_cnt: form.max_member_cnt ? Number(form.max_member_cnt) : null,
       memo: form.memo.trim(),
       status: "OPN",
