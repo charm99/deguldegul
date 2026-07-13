@@ -465,6 +465,7 @@ function CalendarPage() {
       .from("degul_meeting")
       .update({
         use_yn: "N",
+        status: "CNL",
         updated_at: new Date().toISOString(),
       })
       .eq("meeting_id", meeting.meeting_id)
@@ -725,17 +726,18 @@ function CalendarPage() {
         캘린더
       </Typography>
 
-      <Tabs
-        value={tab}
-        onChange={(e, value) => setTab(value)}
-        variant="fullWidth"
-        sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
-      >
-        <Tab label="스코어" />
-        <Tab label="모임" />
-        <Tab label="이벤트" />
-      </Tabs>
-
+      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, mx: -2, px: 2}}>
+        <Tabs
+          value={tab}
+          onChange={(e, value) => setTab(value)}
+          variant="fullWidth"
+          sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
+        >
+          <Tab label="스코어" />
+          <Tab label="모임" />
+          <Tab label="이벤트" />
+        </Tabs>
+      </Box>  
       {message && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {message}
