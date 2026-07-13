@@ -726,7 +726,7 @@ function CalendarPage() {
         캘린더
       </Typography>
 
-      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, mx: -2, px: 2}}>
+      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, bgcolor: "background.default", mx: -2, px: 2}}>
         <Tabs
           value={tab}
           onChange={(e, value) => setTab(value)}
