@@ -153,7 +153,8 @@ function CalendarPage() {
       .neq("status", "CNL")
       .gte("meeting_dt", monthStart.toISOString())
       .lt("meeting_dt", monthEnd.toISOString())
-      .order("meeting_dt", { ascending: true });
+      .order("meeting_dt", { ascending: true })
+      .order("status", { ascending: false });
 
     if (error) {
       setMessage(error.message || "모임 조회 중 오류가 발생했습니다.");
