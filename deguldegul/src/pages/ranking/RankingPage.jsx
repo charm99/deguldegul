@@ -285,16 +285,16 @@ function RankingView({
   const [scoreSort, setScoreSort] = useState("AVG");
   const [message, setMessage] = useState("");
 
-  const highScoreRanking = useMemo(() => {
-    return [...scoreRanking]
-      .sort((a, b) => Number(b.high_score || 0) - Number(a.high_score || 0))
-      .slice(0, 10);
+  const avgScoreRanking = useMemo(() => {
+    return scoreRanking
+      .filter((item) => item.ranking_tp === "AVG")
+      .sort((a, b) => Number(a.rank_no || 0) - Number(b.rank_no || 0));
   }, [scoreRanking]);
 
-  const avgScoreRanking = useMemo(() => {
-    return [...scoreRanking]
-      .sort((a, b) => Number(b.avg_score || 0) - Number(a.avg_score || 0))
-      .slice(0, 10);
+  const highScoreRanking = useMemo(() => {
+    return scoreRanking
+      .filter((item) => item.ranking_tp === "HIGH")
+      .sort((a, b) => Number(a.rank_no || 0) - Number(b.rank_no || 0));
   }, [scoreRanking]);
 
   const selectedScoreRanking =
@@ -413,8 +413,8 @@ function RankingView({
                 ? ["순위", "이름", "평균", "게임"]
                 : ["순위", "이름", "최고", "게임"]
             }
-            rows={selectedScoreRanking.map((item, index) => [
-              index + 1,
+            rows={selectedScoreRanking.map((item) => [
+              Number(item.rank_no),
               item.nickname || item.user_nm,
               scoreSort === "AVG"
                 ? formatNumber(item.avg_score, 1)
