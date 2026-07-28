@@ -14,6 +14,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { canManageNotice } from "../../shared/model/permissions";
 import {
   createBoard,
   getBoardDetail,
@@ -35,7 +36,7 @@ function BoardWritePage() {
   const [files, setFiles] = useState([]);
   const [message, setMessage] = useState("");
 
-  const canWriteNotice = ["ADM", "MGR"].includes(profile?.role);
+  const canWriteNotice = canManageNotice(profile);
 
   const loadBoard = async () => {
     const { data, error } = await getBoardDetail(boardId);

@@ -1,17 +1,18 @@
 import { Box, Typography, Card, CardContent, Stack, Avatar, Button, List, ListItemButton, ListItemText, Divider } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { supabase } from "../../services/supabase";
+import { signOut } from "../../features/auth/api/authApi";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { canAccessAdmin } from "../../shared/model/permissions";
 
 function ProfilePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
 
-  const isAdmin = ["ADM", "MGR", "STF"].includes(profile?.role);
+  const isAdmin = canAccessAdmin(profile);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     window.location.href = "/";
   };
 
@@ -86,6 +87,7 @@ function ProfilePage() {
       <MenuCard
         items={[
           { label: "포인트 이력", onClick: () => navigate("/profile/points") },
+          { label: "코인 및 뽑기 내역", onClick: () => navigate("/profile/capsule-history") },
           { label: "알림 설정", onClick: () => alert("알림 설정은 추후 업데이트 예정입니다.") },
           { label: "이용약관", onClick: () => navigate("/profile/terms") },
           { label: "개인정보처리방침", onClick: () => navigate("/profile/privacy") },

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { supabase } from "../../services/supabase";
+import { fetchProfile, getCurrentUser } from "../../features/auth/api/authApi";
 
 function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -11,37 +11,33 @@ function AuthCallbackPage() {
 
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentUser();
 
       if (!user) {
         navigate("/");
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("degul_users")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
+      const { data: profile } = await fetchProfile(user.id);
 
       if (!profile) {
         navigate("/complete-profile");
         return;
       }
 
-      if (profile.status === "PENDING") {
+      if (profile.status === "PND") {
         alert("관리자 승인 대기중입니다.");
         navigate("/");
         return;
       }
 
-      if (profile.status === "REJECTED") {
+      if (profile.status === "REJ") {
         alert("가입이 거절되었습니다.");
         navigate("/");
         return;
       }
 
-      if (profile.status === "SLEEP") {
+      if (profile.status === "SLP") {
         alert("휴면 계정입니다.");
         navigate("/");
         return;

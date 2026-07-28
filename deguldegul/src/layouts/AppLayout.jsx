@@ -16,6 +16,7 @@ import PersonIcon from "@mui/icons-material/Person";
 function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isImmersivePage = location.pathname === "/capsule";
 
   const getCurrentTab = () => {
     if (location.pathname.startsWith("/calendar")) return "/calendar";
@@ -35,12 +36,12 @@ function AppLayout() {
       sx={{
         minHeight: "100vh",
         bgcolor: "#f7f8fb",
-        pb: 8,
+        pb: isImmersivePage ? 0 : 9,
       }}
     >
       <Box
         sx={{
-          maxWidth: 480,
+          maxWidth: 375,
           mx: "auto",
           minHeight: "100vh",
           bgcolor: "#fff",
@@ -49,14 +50,14 @@ function AppLayout() {
         <Outlet />
       </Box>
 
-      <Paper
+      {!isImmersivePage && <Paper
         elevation={8}
         sx={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          maxWidth: 480,
+          maxWidth: 375,
           mx: "auto",
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
@@ -67,6 +68,30 @@ function AppLayout() {
           value={getCurrentTab()}
           onChange={handleChange}
           showLabels
+          sx={{
+            height: 72,
+            "& .MuiBottomNavigationAction-root": {
+              minWidth: 0,
+              px: 0.5,
+              pt: 1.1,
+              color: "#777b82",
+            },
+            "& .MuiBottomNavigationAction-label": {
+              mt: 0.45,
+              fontSize: 12,
+              lineHeight: 1.2,
+            },
+            "& .Mui-selected": {
+              color: "#0868f7",
+            },
+            "& .Mui-selected .MuiBottomNavigationAction-label": {
+              fontSize: 12,
+              fontWeight: 700,
+            },
+            "& .MuiSvgIcon-root": {
+              fontSize: 22,
+            },
+          }}
         >
           <BottomNavigationAction
             label="홈"
@@ -98,7 +123,7 @@ function AppLayout() {
             icon={<PersonIcon />}
           />
         </BottomNavigation>
-      </Paper>
+      </Paper>}
     </Box>
   );
 }

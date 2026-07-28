@@ -17,8 +17,12 @@ import {
 } from "@mui/material";
 
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  fetchBattleRanking,
+  fetchPersonalStats,
+  fetchRankings,
+} from "../../features/ranking/api/rankingApi";
 
 function RankingPage() {
   const [tab, setTab] = useState(0);
@@ -79,38 +83,16 @@ function PersonalStatsView() {
   const loadPersonalStats = async () => {
     setMessage("");
 
-    const { data: statData, error: statError } = await supabase.rpc("get_my_stats");
+    const { data, error } = await fetchPersonalStats(year);
 
-    if (statError) {
-      setMessage(statError.message);
+    if (error) {
+      setMessage(error.message);
       return;
     }
 
-    setMyStats(statData?.[0] || myStats);
-
-    const { data: yearData, error: yearError } = await supabase.rpc(
-      "get_my_monthly_avg",
-      { p_year: year }
-    );
-
-    if (yearError) {
-      setMessage(yearError.message);
-      return;
-    }
-
-    setYearlyAvgData(yearData || []);
-
-    const { data: recentData, error: recentError } = await supabase.rpc(
-      "get_my_recent_games",
-      { p_limit: 5 }
-    );
-
-    if (recentError) {
-      setMessage(recentError.message);
-      return;
-    }
-
-    setRecentGames(recentData || []);
+    setMyStats(data.stats || myStats);
+    setYearlyAvgData(data.monthlyAverages);
+    setRecentGames(data.recentGames);
   };
 
   useEffect(() => {
@@ -285,16 +267,16 @@ function RankingView({
   const [scoreSort, setScoreSort] = useState("AVG");
   const [message, setMessage] = useState("");
 
-  const highScoreRanking = useMemo(() => {
-    return [...scoreRanking]
-      .sort((a, b) => Number(b.high_score || 0) - Number(a.high_score || 0))
-      .slice(0, 10);
+  const avgScoreRanking = useMemo(() => {
+    return scoreRanking
+      .filter((item) => item.ranking_tp === "AVG")
+      .sort((a, b) => Number(a.rank_no || 0) - Number(b.rank_no || 0));
   }, [scoreRanking]);
 
-  const avgScoreRanking = useMemo(() => {
-    return [...scoreRanking]
-      .sort((a, b) => Number(b.avg_score || 0) - Number(a.avg_score || 0))
-      .slice(0, 10);
+  const highScoreRanking = useMemo(() => {
+    return scoreRanking
+      .filter((item) => item.ranking_tp === "HIGH")
+      .sort((a, b) => Number(a.rank_no || 0) - Number(b.rank_no || 0));
   }, [scoreRanking]);
 
   const selectedScoreRanking =
@@ -303,35 +285,15 @@ function RankingView({
   const loadRanking = async () => {
     setMessage("");
 
-    const { data: scoreData, error: scoreError } = await supabase.rpc(
-      "get_score_ranking",
-      {
-        p_range: rankingRange,
-        p_year: selectedYear,
-      }
-    );
+    const { data, error } = await fetchRankings(rankingRange, selectedYear);
 
-    if (scoreError) {
-      setMessage(scoreError.message);
+    if (error) {
+      setMessage(error.message);
       return;
     }
 
-    setScoreRanking(scoreData || []);
-
-    const { data: attendanceData, error: attendanceError } = await supabase.rpc(
-      "get_attendance_ranking",
-      {
-        p_range: rankingRange,
-        p_year: selectedYear,
-      }
-    );
-
-    if (attendanceError) {
-      setMessage(attendanceError.message);
-      return;
-    }
-
-    setAttendanceRanking(attendanceData || []);
+    setScoreRanking(data.scores);
+    setAttendanceRanking(data.attendances);
   };
 
   useEffect(() => {
@@ -413,8 +375,8 @@ function RankingView({
                 ? ["순위", "이름", "평균", "게임"]
                 : ["순위", "이름", "최고", "게임"]
             }
-            rows={selectedScoreRanking.map((item, index) => [
-              index + 1,
+            rows={selectedScoreRanking.map((item) => [
+              Number(item.rank_no),
               item.nickname || item.user_nm,
               scoreSort === "AVG"
                 ? formatNumber(item.avg_score, 1)
@@ -471,7 +433,7 @@ function BattleRankingView() {
   const loadBattleRanking = async () => {
     setMessage("");
 
-    const { data, error } = await supabase.rpc("get_battle_ranking");
+    const { data, error } = await fetchBattleRanking();
 
     if (error) {
       setMessage(error.message);

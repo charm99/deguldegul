@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -17,19 +17,28 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import { getBoards } from "../../services/boardService";
 import { useAuth } from "../../contexts/AuthContext";
+import { canManageNotice } from "../../shared/model/permissions";
 
 function BoardPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile } = useAuth();
 
-  const [tab, setTab] = useState(0);
+  const requestedBoardType = searchParams.get("type");
+  const [tab, setTab] = useState(requestedBoardType === "FRI" ? 1 : 0);
   const [boards, setBoards] = useState([]);
   const [message, setMessage] = useState("");
 
   const boardTp = tab === 0 ? "NOT" : "FRI";
 
-  const canWriteNotice = ["ADM", "MGR"].includes(profile?.role);
+  const canWriteNotice = canManageNotice(profile);
   const canWrite = boardTp === "FRI" || canWriteNotice;
+
+  const handleTabChange = (event, value) => {
+    void event;
+    setTab(value);
+    setSearchParams({ type: value === 0 ? "NOT" : "FRI" }, { replace: true });
+  };
 
   const loadBoards = async () => {
     setMessage("");
@@ -48,6 +57,10 @@ function BoardPage() {
     loadBoards();
   }, [boardTp]);
 
+  useEffect(() => {
+    setTab(requestedBoardType === "FRI" ? 1 : 0);
+  }, [requestedBoardType]);
+
   return (
     <Box sx={{ p: 2, minHeight: "calc(100vh - 80px)" }}>
       <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ mb: 2 }}>
@@ -56,7 +69,7 @@ function BoardPage() {
 
       <Tabs
         value={tab}
-        onChange={(e, value) => setTab(value)}
+        onChange={handleTabChange}
         variant="fullWidth"
         sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
       >

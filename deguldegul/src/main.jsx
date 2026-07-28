@@ -4,11 +4,14 @@ import App from "./App.jsx";
 import "./index.css";
 
 import { AuthProvider } from "./contexts/AuthContext.jsx";
+import { CommonCodeProvider } from "./contexts/CommonCodeContext.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <CommonCodeProvider>
+        <App />
+      </CommonCodeProvider>
     </AuthProvider>
   </React.StrictMode>
 );

@@ -24,8 +24,16 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  createMeeting,
+  fetchMeetingAdminData,
+  generateBattleMatches,
+  updateMeetingStatus as updateMeetingStatusRequest,
+} from "../../features/admin/api/meetingAdminApi";
+import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 const EMPTY_FORM = {
   meeting_nm: "",
@@ -39,6 +47,12 @@ const EMPTY_FORM = {
 function MeetingManagePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { getCodes, getCodeName } = useCommonCodes();
+  const meetingTypes = getCodes(COMMON_CODE_GROUP.MEETING_TYPE);
+  const getMeetingTypeLabel = (value) =>
+    getCodeName(COMMON_CODE_GROUP.MEETING_TYPE, value);
+  const getStatusLabel = (value) =>
+    getCodeName(COMMON_CODE_GROUP.MEETING_STATUS, value);
 
   const [meetings, setMeetings] = useState([]);
   const [centers, setCenters] = useState([]);
@@ -55,42 +69,15 @@ function MeetingManagePage() {
   const loadData = async () => {
     setMessage("");
 
-    const { data: centerData, error: centerError } = await supabase
-      .from("degul_center")
-      .select("*")
-      .eq("use_yn", "Y")
-      .order("center_nm");
-
-    if (centerError) {
-      setMessage(centerError.message);
-      return;
-    }
-
-    setCenters(centerData || []);
-
-    const { data, error } = await supabase
-      .from("degul_meeting")
-      .select(`
-        meeting_id,
-        meeting_nm,
-        meeting_tp,
-        meeting_dt,
-        max_member_cnt,
-        memo,
-        status,
-        center:center_id (
-          center_nm
-        )
-      `)
-      .eq("use_yn", "Y")
-      .order("meeting_dt", { ascending: true });
+    const { data, error } = await fetchMeetingAdminData();
 
     if (error) {
       setMessage(error.message);
       return;
     }
 
-    setMeetings(data || []);
+    setCenters(data.centers);
+    setMeetings(data.meetings);
   };
 
   const handleSave = async () => {
@@ -99,7 +86,7 @@ function MeetingManagePage() {
       return;
     }
 
-    const { error } = await supabase.from("degul_meeting").insert({
+    const { error } = await createMeeting({
       meeting_nm: form.meeting_nm.trim(),
       meeting_tp: form.meeting_tp,
       center_id: form.center_id,
@@ -127,25 +114,14 @@ function MeetingManagePage() {
 
     if (!ok) return;
 
-    const { error: updateError } = await supabase
-      .from("degul_meeting")
-      .update({
-        status: "CLS",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("meeting_id", meetingId);
+    const { error: updateError } = await updateMeetingStatusRequest(meetingId, "CLS");
 
     if (updateError) {
       alert(updateError.message);
       return;
     }
 
-    const { error: battleError } = await supabase.rpc(
-      "generate_battle_matches",
-      {
-        p_meeting_id: meetingId,
-      }
-    );
+    const { error: battleError } = await generateBattleMatches(meetingId);
 
     if (battleError) {
       alert(`대진표 생성 실패: ${battleError.message}`);
@@ -156,13 +132,7 @@ function MeetingManagePage() {
   };
 
   const updateMeetingStatus = async (meetingId, status) => {
-    const { error } = await supabase
-      .from("degul_meeting")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("meeting_id", meetingId);
+    const { error } = await updateMeetingStatusRequest(meetingId, status);
 
     if (error) {
       alert(error.message);
@@ -177,13 +147,7 @@ function MeetingManagePage() {
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("degul_meeting")
-      .update({
-        status: "OPN",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("meeting_id", meetingId);
+    const { error } = await updateMeetingStatusRequest(meetingId, "OPN");
 
     if (error) {
       alert(error.message);
@@ -355,9 +319,11 @@ function MeetingManagePage() {
               }
               fullWidth
             >
-              <MenuItem value="REG">정기전</MenuItem>
-              <MenuItem value="FLS">번개</MenuItem>
-              <MenuItem value="EVT">이벤트</MenuItem>
+              {meetingTypes.map((item) => (
+                <MenuItem key={item.com_cd} value={item.com_cd}>
+                  {item.com_nm}
+                </MenuItem>
+              ))}
             </TextField>
 
             <TextField
@@ -421,26 +387,6 @@ function MeetingManagePage() {
       </Dialog>
     </Box>
   );
-}
-
-function getMeetingTypeLabel(value) {
-  const map = {
-    REG: "정기전",
-    FLS: "번개",
-    EVT: "이벤트",
-  };
-
-  return map[value] || value;
-}
-
-function getStatusLabel(value) {
-  const map = {
-    OPN: "모집중",
-    CLS: "마감",
-    CNL: "취소",
-  };
-
-  return map[value] || value;
 }
 
 function formatDateTime(value) {

@@ -14,6 +14,8 @@ import {
 } from "@mui/material";
 
 import { formatTime } from "../utils/calendarUtils";
+import { useCommonCodes } from "../../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../../shared/constants/commonCodeGroups";
 
 function VoteDialog({
   open,
@@ -23,6 +25,8 @@ function VoteDialog({
   onClose,
   onSave,
 }) {
+  const { getCodes } = useCommonCodes();
+  const attendanceStatuses = getCodes(COMMON_CODE_GROUP.ATTENDANCE_STATUS);
   const canBattle = ["ATD", "LAT"].includes(voteForm.attendance_tp);
 
   return (
@@ -55,10 +59,11 @@ function VoteDialog({
             }}
             fullWidth
           >
-            <MenuItem value="ATD">참석</MenuItem>
-            <MenuItem value="LAT">늦참</MenuItem>
-            <MenuItem value="PND">보류</MenuItem>
-            <MenuItem value="ABS">불참</MenuItem>
+            {attendanceStatuses.map((item) => (
+              <MenuItem key={item.com_cd} value={item.com_cd}>
+                {item.com_nm}
+              </MenuItem>
+            ))}
           </TextField>
 
           {canBattle && (

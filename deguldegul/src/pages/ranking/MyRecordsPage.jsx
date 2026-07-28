@@ -14,10 +14,15 @@ import {
 } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { supabase } from "../../services/supabase";
+import { fetchMyRecords } from "../../features/ranking/api/rankingApi";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 function MyRecordsPage() {
   const navigate = useNavigate();
+  const { getCodeName } = useCommonCodes();
+  const getMeetingTypeLabel = (value) =>
+    getCodeName(COMMON_CODE_GROUP.MEETING_TYPE, value);
 
   const [records, setRecords] = useState([]);
   const [message, setMessage] = useState("");
@@ -25,7 +30,7 @@ function MyRecordsPage() {
   const loadRecords = async () => {
     setMessage("");
 
-    const { data, error } = await supabase.rpc("get_my_all_records");
+    const { data, error } = await fetchMyRecords();
 
     if (error) {
       setMessage(error.message);
@@ -131,16 +136,6 @@ function InfoBox({ label, value }) {
       <Typography fontWeight={900}>{value}</Typography>
     </Box>
   );
-}
-
-function getMeetingTypeLabel(value) {
-  const map = {
-    REG: "정기전",
-    FLS: "번개",
-    EVT: "이벤트",
-  };
-
-  return map[value] || value;
 }
 
 function formatDateTime(value) {

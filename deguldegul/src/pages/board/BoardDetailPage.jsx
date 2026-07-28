@@ -20,6 +20,10 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  canManageNotice,
+  canManageOwnedContent,
+} from "../../shared/model/permissions";
+import {
   createComment,
   deleteBoard,
   deleteComment,
@@ -39,9 +43,8 @@ function BoardDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [message, setMessage] = useState("");
 
-  const isAdmin = ["ADM", "MGR"].includes(profile?.role);
-  const isWriter = board?.writer_id === profile?.id;
-  const canEdit = isAdmin || isWriter;
+  const isAdmin = canManageNotice(profile);
+  const canEdit = canManageOwnedContent(profile, board?.writer_id);
 
   const [imageOpen, setImageOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState("");

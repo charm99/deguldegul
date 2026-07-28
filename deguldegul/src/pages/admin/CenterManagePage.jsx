@@ -26,7 +26,13 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 
-import { supabase } from "../../services/supabase";
+import {
+  fetchCenterManagers,
+  fetchCentersForAdmin,
+  saveCenter,
+} from "../../features/admin/api/centerAdminApi";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 const WEEK_OPTIONS = [
   { value: 1, label: "1주" },
@@ -34,16 +40,6 @@ const WEEK_OPTIONS = [
   { value: 3, label: "3주" },
   { value: 4, label: "4주" },
   { value: 5, label: "5주" },
-];
-
-const WEEKDAY_OPTIONS = [
-  { value: "SUN", label: "일요일" },
-  { value: "MON", label: "월요일" },
-  { value: "TUE", label: "화요일" },
-  { value: "WED", label: "수요일" },
-  { value: "THU", label: "목요일" },
-  { value: "FRI", label: "금요일" },
-  { value: "SAT", label: "토요일" },
 ];
 
 const EMPTY_FORM = {
@@ -64,6 +60,10 @@ const EMPTY_FORM = {
 
 function CenterManagePage() {
   const navigate = useNavigate();
+  const { getCodes, getCodeName } = useCommonCodes();
+  const weekdayOptions = getCodes(COMMON_CODE_GROUP.WEEKDAY);
+  const formatWeekday = (value) =>
+    getCodeName(COMMON_CODE_GROUP.WEEKDAY, value);
 
   const [centers, setCenters] = useState([]);
   const [managers, setManagers] = useState([]);
@@ -84,12 +84,7 @@ function CenterManagePage() {
   }, [centers, onlyUse]);
 
   const loadManagers = async () => {
-    const { data, error } = await supabase
-      .from("degul_users")
-      .select("id, name, nickname, phone_no, role, status")
-      .in("role", ["ADM", "MGR", "STF"])
-      .eq("status", "ACT")
-      .order("name");
+    const { data, error } = await fetchCenterManagers();
 
     if (error) {
       console.error(error);
@@ -104,30 +99,7 @@ function CenterManagePage() {
       setLoading(true);
       setMessage("");
 
-      const { data, error } = await supabase
-        .from("degul_center")
-        .select(`
-          center_id,
-          center_nm,
-          address,
-          center_tel_no,
-          manager_user_id,
-          bank_nm,
-          account_no,
-          account_holder,
-          game_cost,
-          fixed_week_nos,
-          fixed_weekday,
-          fixed_time,
-          use_yn,
-          manager:manager_user_id (
-            id,
-            name,
-            nickname,
-            phone_no
-          )
-        `)
-        .order("created_at", { ascending: true });
+      const { data, error } = await fetchCentersForAdmin();
 
       if (error) {
         throw error;
@@ -222,12 +194,7 @@ function CenterManagePage() {
       use_yn: form.use_yn,
     };
 
-    const { error } = isEdit
-      ? await supabase
-          .from("degul_center")
-          .update(payload)
-          .eq("center_id", form.center_id)
-      : await supabase.from("degul_center").insert(payload);
+    const { error } = await saveCenter(isEdit ? form.center_id : null, payload);
 
     if (error) {
       alert(error.message);
@@ -471,9 +438,9 @@ function CenterManagePage() {
               }
               fullWidth
             >
-              {WEEKDAY_OPTIONS.map((item) => (
-                <MenuItem key={item.value} value={item.value}>
-                  {item.label}
+              {weekdayOptions.map((item) => (
+                <MenuItem key={item.com_cd} value={item.com_cd}>
+                  {item.com_nm}
                 </MenuItem>
               ))}
             </TextField>
@@ -537,20 +504,6 @@ function formatWeekNos(value) {
   if (!value || value.length === 0) return "-";
 
   return `${value.join(",")}주`;
-}
-
-function formatWeekday(value) {
-  const map = {
-    SUN: "일요일",
-    MON: "월요일",
-    TUE: "화요일",
-    WED: "수요일",
-    THU: "목요일",
-    FRI: "금요일",
-    SAT: "토요일",
-  };
-
-  return map[value] || value || "-";
 }
 
 function formatTime(value) {

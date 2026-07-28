@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { supabase } from "../services/supabase";
+import {
+  fetchProfile,
+  getSession,
+  onAuthStateChange,
+  signOut,
+} from "../features/auth/api/authApi";
 
 const AuthContext = createContext(null);
 
@@ -14,11 +19,7 @@ export function AuthProvider({ children }) {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from("degul_users")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+    const { data, error } = await fetchProfile(user.id);
 
     if (error) {
       console.error("profile load error:", error);
@@ -36,7 +37,7 @@ export function AuthProvider({ children }) {
     const {
       data: { session },
       error,
-    } = await supabase.auth.getSession();
+    } = await getSession();
 
     if (error) {
       console.error("session load error:", error);
@@ -64,7 +65,7 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = onAuthStateChange((event, session) => {
       const user = session?.user ?? null;
 
       setLoading(true);
@@ -83,7 +84,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
+    await signOut();
     setAuthUser(null);
     setProfile(null);
     setLoading(false);

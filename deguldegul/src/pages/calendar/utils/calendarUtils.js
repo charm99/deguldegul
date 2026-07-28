@@ -74,34 +74,3 @@ export function formatTime(value) {
     minute: "2-digit",
   });
 }
-
-export function getMeetingTypeLabel(value) {
-  const map = {
-    REG: "정기전",
-    FLS: "번개",
-    EVT: "이벤트",
-  };
-
-  return map[value] || value;
-}
-
-export function getStatusLabel(value) {
-  const map = {
-    OPN: "모집중",
-    CLS: "마감",
-    CNL: "취소",
-  };
-
-  return map[value] || value;
-}
-
-export function getAttendanceLabel(value) {
-  const map = {
-    ATD: "참석",
-    LAT: "늦참",
-    PND: "보류",
-    ABS: "불참",
-  };
-
-  return map[value] || "미투표";
-}
