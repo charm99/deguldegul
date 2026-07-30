@@ -164,12 +164,15 @@ function HomePage() {
           </Stack>
 
           <Typography color="#17191d" fontWeight={800} sx={{ mb: 1.4, fontSize: 16, lineHeight: 1.4 }}>
-            {formatMeetingTitle(selectedMeeting)}
+            {selectedMeeting.meeting_nm}
           </Typography>
 
           <Stack direction="row" spacing={1.2} sx={{ mb: 1.3 }}>
             <MeetingInfo label="장소" value={selectedMeeting.center?.center_nm || "-"} />
-            <MeetingInfo label="시간" value={formatTime(selectedMeeting.meeting_dt)} />
+            <MeetingInfo
+              label="시간"
+              value={formatTime(selectedMeeting.meeting_dt)}
+            />
             <MeetingInfo
               label="게임비"
               value={formatCost(selectedMeeting.center?.game_cost, selectedMeeting.meeting_tp)}
@@ -477,11 +480,6 @@ function getAttendanceState(type) {
 function formatCardDate(date) {
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
   return `${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")} ${weekdays[date.getDay()]}요일`;
-}
-
-function formatMeetingTitle(meeting) {
-  const date = new Date(meeting.meeting_dt);
-  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 ${meeting.meeting_nm}`;
 }
 
 function formatTime(value) {

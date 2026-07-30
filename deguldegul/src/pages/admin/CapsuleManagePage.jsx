@@ -69,7 +69,7 @@ function CapsuleManagePage() {
   };
 
   const handleGrantAttendanceCoins = async (round) => {
-    const meetingId = prompt("참석 코인을 지급할 모임 UUID를 입력하세요.");
+    const meetingId = prompt("배틀 참가 코인을 지급할 정기전 모임 UUID를 입력하세요.");
     if (!meetingId?.trim()) return;
 
     setProcessingId(round.round_id);
@@ -84,7 +84,7 @@ function CapsuleManagePage() {
       return;
     }
 
-    alert(`${data || 0}명에게 참석 코인을 지급했습니다.`);
+    alert(`${data || 0}명의 배틀 참가자에게 코인을 지급했습니다.`);
   };
 
   return (
@@ -146,7 +146,7 @@ function CapsuleManagePage() {
                     onClick={() => handleGrantAttendanceCoins(round)}
                     sx={{ mt: 1.5 }}
                   >
-                    모임 참석자 코인 지급
+                    배틀 참가자 코인 지급
                   </Button>
                 )}
               </CardContent>

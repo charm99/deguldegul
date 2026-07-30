@@ -38,18 +38,6 @@ function BoardWritePage() {
 
   const canWriteNotice = canManageNotice(profile);
 
-  const loadBoard = async () => {
-    const { data, error } = await getBoardDetail(boardId);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setTitle(data.title);
-    setContent(data.content);
-  };
-
   const handleSave = async () => {
     if (!title.trim()) {
       alert("제목을 입력해주세요.");
@@ -100,35 +88,74 @@ function BoardWritePage() {
   };
 
   useEffect(() => {
-    if (isEdit) {
-      loadBoard();
-    }
-  }, [boardId]);
+    if (!isEdit) return undefined;
+
+    let active = true;
+    getBoardDetail(boardId).then(({ data, error }) => {
+      if (!active) return;
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      setTitle(data.title);
+      setContent(data.content);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [boardId, isEdit]);
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-        <IconButton onClick={() => navigate(-1)}>
+    <Box
+      sx={{
+        minHeight: "calc(100vh - 72px)",
+        bgcolor: "#f7f7f8",
+        pb: 10,
+        fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={0.5}
+        sx={{
+          minHeight: 58,
+          px: 1,
+          bgcolor: "#fff",
+          borderBottom: "1px solid #eceef2",
+        }}
+      >
+        <IconButton onClick={() => navigate(-1)} size="small">
           <ArrowBackIcon />
         </IconButton>
 
-        <Typography variant="h6" fontWeight={800}>
+        <Typography sx={{ fontSize: 16, fontWeight: 900 }}>
           {isEdit ? "글 수정" : boardTp === "NOT" ? "공지 작성" : "자유글 작성"}
         </Typography>
       </Stack>
 
-      {message && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {message}
-        </Alert>
-      )}
+      <Stack
+        spacing={1.5}
+        sx={{
+          m: 2,
+          p: 1.75,
+          bgcolor: "#fff",
+          border: "1px solid #eceef2",
+          borderRadius: 2,
+        }}
+      >
+        {message && <Alert severity="error">{message}</Alert>}
 
-      <Stack spacing={2}>
         <TextField
           label="제목"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           fullWidth
+          size="small"
+          sx={fieldSx}
         />
 
         <TextField
@@ -138,10 +165,15 @@ function BoardWritePage() {
           multiline
           minRows={8}
           fullWidth
+          sx={fieldSx}
         />
 
         {!isEdit && (
-          <Button variant="outlined" component="label">
+          <Button
+            variant="outlined"
+            component="label"
+            sx={{ borderRadius: 1.5, fontWeight: 800 }}
+          >
             사진 첨부
             <input
               hidden
@@ -159,12 +191,24 @@ function BoardWritePage() {
           </Typography>
         )}
 
-        <Button variant="contained" size="large" onClick={handleSave}>
+        <Button
+          variant="contained"
+          size="large"
+          onClick={handleSave}
+          sx={{ borderRadius: 1.5, bgcolor: "#0868f7", fontWeight: 900 }}
+        >
           저장
         </Button>
       </Stack>
     </Box>
   );
 }
+
+const fieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: 1.5,
+    fontSize: 13,
+  },
+};
 
 export default BoardWritePage;

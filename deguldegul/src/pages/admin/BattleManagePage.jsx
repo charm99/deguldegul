@@ -46,7 +46,9 @@ function BattleManagePage() {
   };
 
   const handleRefresh = async () => {
-    const ok = confirm("미확정 배틀 결과를 최신화할까요?");
+    const ok = confirm(
+      "미확정 배틀 결과와 포인트를 최신화할까요?\n진행 중인 캡슐 회차가 있으면 배틀 참가자에게 코인 1개가 자동 지급됩니다."
+    );
     if (!ok) return;
 
     const { data, error } = await refreshBattleResults();
@@ -56,12 +58,24 @@ function BattleManagePage() {
       return;
     }
 
-    alert(`${data || 0}건의 배틀 결과가 최신화되었습니다.`);
+    alert(
+      `${data || 0}건의 배틀 결과가 최신화되었습니다.\n대상 배틀 참가자의 코인도 중복 없이 지급되었습니다.`
+    );
     await loadHistories();
   };
 
   useEffect(() => {
-    loadHistories();
+    let active = true;
+
+    fetchBattlePointHistory().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setMessage(error.message);
+      else setHistories(data || []);
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

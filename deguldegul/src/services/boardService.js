@@ -16,6 +16,10 @@ export async function getBoards(boardTp) {
         id,
         name,
         nickname
+      ),
+      comments:degul_board_comment (
+        comment_id,
+        use_yn
       )
     `)
     .eq("use_yn", "Y")
@@ -25,7 +29,18 @@ export async function getBoards(boardTp) {
     query = query.eq("board_tp", boardTp);
   }
 
-  return await query;
+  const { data, error } = await query;
+
+  return {
+    data: (data || []).map((board) => ({
+      ...board,
+      comment_count: (board.comments || []).filter(
+        (comment) => comment.use_yn === "Y"
+      ).length,
+      comments: undefined,
+    })),
+    error,
+  };
 }
 
 export async function getBoardDetail(boardId) {

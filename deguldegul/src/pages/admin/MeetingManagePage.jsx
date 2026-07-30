@@ -34,6 +34,8 @@ import {
 import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
 import { useCommonCodes } from "../../contexts/useCommonCodes";
 import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
+import MeetingParticipantDialog from "./components/MeetingParticipantDialog";
+import { canSeePrivateUserInfo } from "../../shared/model/permissions";
 
 const EMPTY_FORM = {
   meeting_nm: "",
@@ -60,6 +62,7 @@ function MeetingManagePage() {
   const [message, setMessage] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [participantMeeting, setParticipantMeeting] = useState(null);
 
   const filteredMeetings = useMemo(() => {
     if (!onlyOpen) return meetings;
@@ -158,7 +161,24 @@ function MeetingManagePage() {
   };
 
   useEffect(() => {
-    loadData();
+    let active = true;
+
+    fetchMeetingAdminData().then(({ data, error }) => {
+      if (!active) return;
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      setMessage("");
+      setCenters(data.centers);
+      setMeetings(data.meetings);
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
@@ -250,6 +270,17 @@ function MeetingManagePage() {
               )}
 
               <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                {meeting.status !== "CNL" && (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => setParticipantMeeting(meeting)}
+                    sx={{ fontWeight: 800 }}
+                  >
+                    참석자/레인
+                  </Button>
+                )}
+
                 {meeting.status === "OPN" && (
                   <Button
                     fullWidth
@@ -385,6 +416,13 @@ function MeetingManagePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <MeetingParticipantDialog
+        meeting={participantMeeting}
+        open={Boolean(participantMeeting)}
+        canSeePhone={canSeePrivateUserInfo(profile)}
+        onClose={() => setParticipantMeeting(null)}
+      />
     </Box>
   );
 }
