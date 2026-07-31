@@ -215,6 +215,29 @@ function CapsulePage() {
           <Typography fontWeight={900} fontSize={22}>{dashboard.coin_balance}개</Typography>
         </Stack>
 
+        <Button
+          fullWidth
+          variant="contained"
+          disabled={!canDraw}
+          onClick={handleDraw}
+          startIcon={<MonetizationOnRoundedIcon />}
+          sx={{
+            mt: 2,
+            height: 54,
+            borderRadius: 99,
+            fontSize: 17,
+            fontWeight: 900,
+            background: "linear-gradient(90deg, #7831db, #a22ce5)",
+            boxShadow: "0 10px 28px rgba(135,48,220,.35)",
+            "&.Mui-disabled": {
+              color: "#777080",
+              background: "#2b2534",
+            },
+          }}
+        >
+          {drawing ? "캡슐을 뽑는 중..." : "1개로 뽑기!"}
+        </Button>
+
         <Box
           sx={{
             mt: 1.5,
@@ -278,29 +301,6 @@ function CapsulePage() {
             ))}
           </Stack>
         </Box>
-
-        <Button
-          fullWidth
-          variant="contained"
-          disabled={!canDraw}
-          onClick={handleDraw}
-          startIcon={<MonetizationOnRoundedIcon />}
-          sx={{
-            mt: 2,
-            height: 54,
-            borderRadius: 99,
-            fontSize: 17,
-            fontWeight: 900,
-            background: "linear-gradient(90deg, #7831db, #a22ce5)",
-            boxShadow: "0 10px 28px rgba(135,48,220,.35)",
-            "&.Mui-disabled": {
-              color: "#777080",
-              background: "#2b2534",
-            },
-          }}
-        >
-          {drawing ? "캡슐을 뽑는 중..." : "1개로 뽑기!"}
-        </Button>
       </Box>
 
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
