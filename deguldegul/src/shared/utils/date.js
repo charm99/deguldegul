@@ -1,3 +1,5 @@
+export const KOREA_TIME_ZONE = "Asia/Seoul";
+
 const DATE_TIME_OPTIONS = {
   year: "numeric",
   month: "2-digit",
@@ -8,12 +10,16 @@ const DATE_TIME_OPTIONS = {
 
 export function formatDate(value, options = {}) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("ko-KR", options);
+  return new Date(value).toLocaleDateString("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
+    ...options,
+  });
 }
 
 export function formatDateTime(value, options = {}) {
   if (!value) return "-";
   return new Date(value).toLocaleString("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
     ...DATE_TIME_OPTIONS,
     ...options,
   });
@@ -22,6 +28,7 @@ export function formatDateTime(value, options = {}) {
 export function formatTime(value) {
   if (!value) return "-";
   return new Date(value).toLocaleTimeString("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -29,9 +36,16 @@ export function formatTime(value) {
 
 export function formatDateKey(value) {
   const date = value instanceof Date ? value : new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: KOREA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value;
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
   return `${year}-${month}-${day}`;
 }
 

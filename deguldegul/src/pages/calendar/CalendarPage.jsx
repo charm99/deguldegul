@@ -17,6 +17,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AddIcon from "@mui/icons-material/Add";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
 import {
   cancelOwnedFlashMeeting,
   closeOwnedFlashMeeting,
@@ -123,21 +124,17 @@ function CalendarPage() {
   const loadMeetings = async () => {
     setMessage("");
 
-    const monthStart = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      1
-    );
-
-    const monthEnd = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() + 1,
-      1
-    );
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const monthStart = `${year}-${String(month + 1).padStart(2, "0")}-01T00:00`;
+    const nextMonthDate = new Date(year, month + 1, 1);
+    const monthEnd = `${nextMonthDate.getFullYear()}-${String(
+      nextMonthDate.getMonth() + 1
+    ).padStart(2, "0")}-01T00:00`;
 
     const { data, error } = await fetchCalendarMeetings(
-      monthStart.toISOString(),
-      monthEnd.toISOString()
+      koreanDateTimeLocalToUtcIso(monthStart),
+      koreanDateTimeLocalToUtcIso(monthEnd)
     );
 
     if (error) {
@@ -979,20 +976,6 @@ function clearActiveScoreMeeting(userId) {
   } catch {
     // 저장 공간을 사용할 수 없는 환경에서는 무시합니다.
   }
-}
-
-function koreanDateTimeLocalToUtcIso(value) {
-  if (!value) return null;
-
-  // value 예: "2026-07-29T21:00"
-  const [datePart, timePart] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-
-  // 한국시간 UTC+9 이므로 UTC로 저장하려면 9시간 빼기
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 9, minute, 0));
-
-  return utcDate.toISOString();
 }
 
 function getInitialCalendarDate(dateParam) {

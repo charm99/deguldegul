@@ -18,6 +18,11 @@ export const fetchMyCapsuleHistory = (roundId = null) =>
 export const fetchAdminCapsuleRounds = () =>
   supabase.rpc("admin_get_capsule_rounds");
 
+export const fetchAdminCapsuleHistory = (roundId) =>
+  supabase.rpc("admin_get_capsule_history", {
+    p_round_id: roundId,
+  });
+
 export const createCapsuleRound = ({
   roundYear,
   roundNo,

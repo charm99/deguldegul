@@ -1,3 +1,8 @@
+import {
+  formatDateKey as formatKoreanDateKey,
+  formatTime as formatKoreanTime,
+} from "../../../shared/utils/date";
+
 export const WEEK_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 export function formatDateKey(date) {
@@ -8,7 +13,7 @@ export function formatDateKey(date) {
 }
 
 export function getDateKeyFromValue(value) {
-  return formatDateKey(new Date(value));
+  return formatKoreanDateKey(value);
 }
 
 export function getCalendarDays(currentDate) {
@@ -67,10 +72,5 @@ export function toKoreanDate(dateText) {
 }
 
 export function formatTime(value) {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatKoreanTime(value);
 }

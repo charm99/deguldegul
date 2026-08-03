@@ -1,4 +1,4 @@
--- 정기전 배틀로얄 결과 최신화 과정에서 ATD 포인트가 최초 생성되면
+-- 배틀로얄 결과 최신화 과정에서 ATD 포인트가 최초 생성되면
 -- 해당 이벤트 회차의 코인 1개를 같은 트랜잭션에서 지급한다.
 
 create or replace function public.award_capsule_coin_on_battle_attendance()
@@ -16,7 +16,7 @@ begin
     return new;
   end if;
 
-  -- 정기전이며 실제 배틀 참가를 선택한 참석자만 지급한다.
+  -- 모임 유형과 무관하게 실제 배틀 참가를 선택한 참석자만 지급한다.
   if not exists (
     select 1
       from public.degul_meeting m
@@ -24,7 +24,6 @@ begin
         on a.meeting_id = m.meeting_id
        and a.user_id = new.user_id
      where m.meeting_id = new.meeting_id
-       and m.meeting_tp = 'REG'
        and coalesce(m.use_yn, 'Y') = 'Y'
        and a.attendance_tp in ('ATD', 'LAT')
        and a.battle_join_yn = 'Y'
@@ -40,7 +39,8 @@ begin
       on m.meeting_id = new.meeting_id
    where r.use_yn = 'Y'
      and r.status = 'OPN'
-     and m.meeting_dt::date between r.start_dt and r.end_dt
+     and (m.meeting_dt at time zone 'Asia/Seoul')::date
+         between r.start_dt and r.end_dt
    order by r.start_dt desc, r.round_id desc
    limit 1;
 
@@ -64,7 +64,7 @@ begin
     new.meeting_id,
     'ATD',
     1,
-    '정기전 배틀로얄 참가 코인 지급',
+    '배틀로얄 참가 코인 지급',
     auth.uid()
   )
   on conflict (user_id, round_id, meeting_id)
@@ -113,10 +113,10 @@ begin
         on m.meeting_id = p_meeting_id
      where r.round_id = p_round_id
        and r.use_yn = 'Y'
-       and m.meeting_tp = 'REG'
-       and m.meeting_dt::date between r.start_dt and r.end_dt
+       and (m.meeting_dt at time zone 'Asia/Seoul')::date
+           between r.start_dt and r.end_dt
   ) then
-    raise exception '회차 기간과 정기전 날짜가 일치하지 않습니다.';
+    raise exception '회차 기간과 모임 날짜가 일치하지 않습니다.';
   end if;
 
   insert into public.degul_capsule_coin_history (
@@ -134,7 +134,7 @@ begin
     p_meeting_id,
     'ATD',
     1,
-    '정기전 배틀로얄 참가 코인 지급(백필)',
+    '배틀로얄 참가 코인 지급(백필)',
     auth.uid()
   from public.degul_attendance a
   where a.meeting_id = p_meeting_id

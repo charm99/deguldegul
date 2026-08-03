@@ -37,7 +37,8 @@ begin
       from public.degul_capsule_round r
      where r.use_yn = 'Y'
        and r.status = 'OPN'
-       and current_date between r.start_dt and r.end_dt
+       and (current_timestamp at time zone 'Asia/Seoul')::date
+           between r.start_dt and r.end_dt
      order by r.start_dt desc, r.round_id desc
      limit 1;
   else
@@ -168,7 +169,8 @@ begin
   end if;
 
   if v_round.status <> 'OPN'
-     or current_date not between v_round.start_dt and v_round.end_dt then
+     or (current_timestamp at time zone 'Asia/Seoul')::date
+        not between v_round.start_dt and v_round.end_dt then
     raise exception '현재 진행 중인 뽑기가 아닙니다.';
   end if;
 
@@ -345,7 +347,14 @@ begin
           from public.degul_capsule_prize p
          where p.round_id = r.round_id
            and p.use_yn = 'Y'
+           and p.prize_tp = 'PRIZE'
       ), 0)::integer as prize_total_qty,
+      coalesce((
+        select sum(p.total_qty)
+          from public.degul_capsule_prize p
+         where p.round_id = r.round_id
+           and p.use_yn = 'Y'
+      ), 0)::integer as allocated_total_qty,
       (
         select count(*)
           from public.degul_capsule c

@@ -15,6 +15,8 @@ import {
   IconButton,
   MenuItem,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -24,10 +26,12 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 
 import {
   createCapsuleRound,
+  fetchAdminCapsuleHistory,
   fetchAdminCapsuleRounds,
   grantAttendanceCapsuleCoins,
   startCapsuleRound,
 } from "../../features/capsule/api/capsuleApi";
+import { formatDateTime } from "../../shared/utils/date";
 
 function CapsuleManagePage() {
   const navigate = useNavigate();
@@ -35,6 +39,10 @@ function CapsuleManagePage() {
   const [message, setMessage] = useState("");
   const [processingId, setProcessingId] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [historyRound, setHistoryRound] = useState(null);
+  const [historyTab, setHistoryTab] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState({ coin_history: [], winner_history: [] });
 
   const loadRounds = async () => {
     const { data, error } = await fetchAdminCapsuleRounds();
@@ -69,7 +77,7 @@ function CapsuleManagePage() {
   };
 
   const handleGrantAttendanceCoins = async (round) => {
-    const meetingId = prompt("배틀 참가 코인을 지급할 정기전 모임 UUID를 입력하세요.");
+    const meetingId = prompt("배틀 참가 코인을 지급할 모임 UUID를 입력하세요.");
     if (!meetingId?.trim()) return;
 
     setProcessingId(round.round_id);
@@ -85,6 +93,22 @@ function CapsuleManagePage() {
     }
 
     alert(`${data || 0}명의 배틀 참가자에게 코인을 지급했습니다.`);
+  };
+
+  const handleOpenHistory = async (round) => {
+    setHistoryRound(round);
+    setHistoryTab(0);
+    setHistoryLoading(true);
+    setHistory({ coin_history: [], winner_history: [] });
+
+    const { data, error } = await fetchAdminCapsuleHistory(round.round_id);
+    setHistoryLoading(false);
+    if (error) {
+      setMessage(error.message);
+      setHistoryRound(null);
+      return;
+    }
+    setHistory(data || { coin_history: [], winner_history: [] });
   };
 
   return (
@@ -111,7 +135,8 @@ function CapsuleManagePage() {
           </Typography>
         )}
         {rounds.map((round) => {
-          const quantityMatched = round.prize_total_qty === round.total_capsule_cnt;
+          const quantityMatched =
+            round.allocated_total_qty === round.total_capsule_cnt;
           return (
             <Card key={round.round_id} variant="outlined" sx={{ borderRadius: 2.5 }}>
               <CardContent>
@@ -127,6 +152,14 @@ function CapsuleManagePage() {
                   <Metric label="생성" value={round.generated_capsule_cnt} />
                   <Metric label="뽑힘" value={round.drawn_capsule_cnt} />
                 </Stack>
+                <Button
+                  fullWidth
+                  variant="text"
+                  onClick={() => handleOpenHistory(round)}
+                  sx={{ mt: 1 }}
+                >
+                  코인 및 당첨 내역 조회
+                </Button>
                 {round.status === "RDY" && (
                   <Button
                     fullWidth
@@ -164,8 +197,129 @@ function CapsuleManagePage() {
           await loadRounds();
         }}
       />
+      <CapsuleAdminHistoryDialog
+        round={historyRound}
+        open={Boolean(historyRound)}
+        loading={historyLoading}
+        tab={historyTab}
+        history={history}
+        onTabChange={setHistoryTab}
+        onClose={() => setHistoryRound(null)}
+      />
     </Box>
   );
+}
+
+function CapsuleAdminHistoryDialog({
+  round,
+  open,
+  loading,
+  tab,
+  history,
+  onTabChange,
+  onClose,
+}) {
+  const rows = tab === 0 ? history.coin_history : history.winner_history;
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>
+        <Typography fontWeight={900}>{round?.round_nm || "캡슐 이벤트 내역"}</Typography>
+        <Typography color="text.secondary" fontSize={12}>
+          전체 회원의 코인 원장과 상품 당첨 내역
+        </Typography>
+      </DialogTitle>
+      <Tabs
+        value={tab}
+        onChange={(_, value) => onTabChange(value)}
+        variant="fullWidth"
+      >
+        <Tab label={`코인 내역 ${history.coin_history.length}`} />
+        <Tab label={`당첨 내역 ${history.winner_history.length}`} />
+      </Tabs>
+      <DialogContent dividers sx={{ bgcolor: "#f7f7f8", p: 1.5 }}>
+        {loading && (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 5 }}>
+            내역을 불러오는 중...
+          </Typography>
+        )}
+        {!loading && rows.length === 0 && (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 5 }}>
+            조회된 내역이 없습니다.
+          </Typography>
+        )}
+        {!loading && (
+          <Stack spacing={1}>
+            {tab === 0
+              ? rows.map((item) => <CoinHistoryRow key={item.coin_history_id} item={item} />)
+              : rows.map((item) => <WinnerHistoryRow key={item.capsule_id} item={item} />)}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>닫기</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function CoinHistoryRow({ item }) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography fontWeight={800}>{getUserLabel(item)}</Typography>
+            <Typography color="text.secondary" fontSize={12}>
+              {getCoinTypeLabel(item.coin_tp)}
+              {item.meeting_nm ? ` · ${item.meeting_nm}` : ""}
+            </Typography>
+            {item.memo && <Typography fontSize={12}>{item.memo}</Typography>}
+            <Typography color="text.secondary" fontSize={11}>
+              {formatDateTime(item.created_at)}
+            </Typography>
+          </Box>
+          <Typography
+            fontWeight={900}
+            color={item.coin_qty > 0 ? "primary.main" : "error.main"}
+          >
+            {item.coin_qty > 0 ? "+" : ""}{item.coin_qty}
+          </Typography>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WinnerHistoryRow({ item }) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Typography fontWeight={900}>
+          {item.prize_nm}{item.memo ? ` / ${item.memo}` : ""}
+        </Typography>
+        <Typography fontWeight={700}>{getUserLabel(item)}</Typography>
+        <Typography color="text.secondary" fontSize={12}>
+          캡슐 #{item.capsule_no} · {formatDateTime(item.drawn_at)}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+function getUserLabel(item) {
+  return item.nickname
+    ? `${item.user_name} (${item.nickname})`
+    : item.user_name || item.user_id;
+}
+
+function getCoinTypeLabel(type) {
+  return {
+    ATD: "참가 코인 지급",
+    DRAW: "캡슐 뽑기 사용",
+    ADMIN: "관리자 조정",
+    CANCEL: "뽑기 취소 복구",
+  }[type] || type;
 }
 
 function CreateCapsuleRoundDialog({ open, onClose, onCreated }) {

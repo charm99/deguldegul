@@ -1,5 +1,5 @@
 -- 캡슐 이벤트 도입 이후 수동 참석 코인 지급 대상을
--- 정기전 배틀로얄 실제 참가자로 제한한다.
+-- 모임 유형과 무관하게 배틀로얄 실제 참가자로 제한한다.
 -- 과거 참석 내역은 소급 지급하지 않는다.
 
 create or replace function public.admin_grant_attendance_capsule_coins(
@@ -33,11 +33,11 @@ begin
       join public.degul_capsule_round r
         on r.round_id = p_round_id
      where m.meeting_id = p_meeting_id
-       and m.meeting_tp = 'REG'
        and m.use_yn = 'Y'
-       and m.meeting_dt::date between r.start_dt and r.end_dt
+       and (m.meeting_dt at time zone 'Asia/Seoul')::date
+           between r.start_dt and r.end_dt
   ) then
-    raise exception '회차 기간에 포함된 유효한 정기전 모임이 아닙니다.';
+    raise exception '회차 기간에 포함된 유효한 모임이 아닙니다.';
   end if;
 
   insert into public.degul_capsule_coin_history (
@@ -55,7 +55,7 @@ begin
     p_meeting_id,
     'ATD',
     1,
-    '정기전 배틀로얄 참가 코인 지급',
+    '배틀로얄 참가 코인 지급',
     auth.uid()
   from public.degul_attendance a
   where a.meeting_id = p_meeting_id
