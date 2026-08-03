@@ -13,12 +13,17 @@ import {
 } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { supabase } from "../../services/supabase";
+import { fetchPointHistory } from "../../features/profile/api/profileApi";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 function PointHistoryPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { getCodeName } = useCommonCodes();
+  const getPointTypeLabel = (value) =>
+    getCodeName(COMMON_CODE_GROUP.POINT_TYPE, value);
 
   const [histories, setHistories] = useState([]);
   const [message, setMessage] = useState("");
@@ -33,21 +38,7 @@ function PointHistoryPage() {
 
     setMessage("");
 
-    const { data, error } = await supabase
-      .from("degul_point_history")
-      .select(`
-        point_hist_id,
-        point_tp,
-        point,
-        memo,
-        created_at,
-        meeting:meeting_id (
-          meeting_nm,
-          meeting_dt
-        )
-      `)
-      .eq("user_id", profile.id)
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchPointHistory(profile.id);
 
     if (error) {
       setMessage(error.message);
@@ -138,21 +129,6 @@ function PointHistoryPage() {
       </Stack>
     </Box>
   );
-}
-
-function getPointTypeLabel(value) {
-  const map = {
-    ATD: "참석",
-    WIN: "승리",
-    LOS: "패배",
-    BYE: "부전승",
-    S05: "5연승",
-    S10: "10연승",
-    S15: "15연승",
-    MAN: "수동",
-  };
-
-  return map[value] || value;
 }
 
 function getPointColor(value) {

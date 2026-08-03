@@ -7,7 +7,6 @@ import {
   Stack,
   IconButton,
   TextField,
-  MenuItem,
   Button,
   Alert,
   Card,
@@ -16,8 +15,10 @@ import {
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
-import { supabase } from "../../services/supabase";
+import { updateAuthUser, updateProfile } from "../../features/auth/api/authApi";
 import { useAuth } from "../../contexts/AuthContext";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
+import CodeSelect from "../../shared/components/CodeSelect";
 
 function ProfileEditPage() {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ function ProfileEditPage() {
           return;
         }
     
-        const { error: passwordError } = await supabase.auth.updateUser({
+        const { error: passwordError } = await updateAuthUser({
           password: form.newPassword,
         });
     
@@ -78,16 +79,13 @@ function ProfileEditPage() {
         }
       }
 
-    const { error } = await supabase
-      .from("degul_users")
-      .update({
+    const { error } = await updateProfile(profile.id, {
         phone_no: form.phone_no.trim() || null,
         car_no: form.car_no.trim() || null,
         hand: form.hand || null,
         bwl_tp: form.bwl_tp || null,
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", profile.id);
+      });
 
     if (error) {
       setMessage(error.message);
@@ -156,31 +154,21 @@ function ProfileEditPage() {
               fullWidth
             />
 
-            <TextField
-              select
+            <CodeSelect
+              group={COMMON_CODE_GROUP.HAND}
               label="주손"
               value={form.hand}
               onChange={(e) => handleChange("hand", e.target.value)}
               fullWidth
-            >
-              <MenuItem value="R">오른손</MenuItem>
-              <MenuItem value="L">왼손</MenuItem>
-            </TextField>
+            />
 
-            <TextField
-              select
+            <CodeSelect
+              group={COMMON_CODE_GROUP.BOWLING_TYPE}
               label="투구방식"
               value={form.bwl_tp}
               onChange={(e) => handleChange("bwl_tp", e.target.value)}
               fullWidth
-            >
-              <MenuItem value="NON">없음(초보)</MenuItem>
-              <MenuItem value="SPT">아대</MenuItem>
-              <MenuItem value="THR">3핑거</MenuItem>
-              <MenuItem value="TLS">덤리스</MenuItem>
-              <MenuItem value="THD">투핸드</MenuItem>
-              <MenuItem value="BCK">백업</MenuItem>
-            </TextField>
+            />
 
             <TextField
               label="새 비밀번호"

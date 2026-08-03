@@ -17,8 +17,12 @@ import {
 } from "@mui/material";
 
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  fetchBattleRanking,
+  fetchPersonalStats,
+  fetchRankings,
+} from "../../features/ranking/api/rankingApi";
 
 function RankingPage() {
   const [tab, setTab] = useState(0);
@@ -26,34 +30,62 @@ function RankingPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   return (
-    <Box sx={{ p: 2, minHeight: "calc(100vh - 80px)" }}>
-      <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ mb: 2 }}>
+    <Box
+      sx={{
+        minHeight: "calc(100vh - 72px)",
+        bgcolor: "#f7f7f8",
+        color: "#17191d",
+        pb: 10,
+        textAlign: "left",
+        "& .MuiTypography-root, & .MuiButton-root, & .MuiTab-root": {
+          fontFamily: 'Pretendard, "Noto Sans KR", "Segoe UI", sans-serif',
+          letterSpacing: "-0.025em",
+        },
+      }}
+    >
+      <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ display: "none" }}>
         통계
       </Typography>
 
-      <Tabs
-        value={tab}
-        onChange={(e, value) => setTab(value)}
-        variant="fullWidth"
-        sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
-      >
-        <Tab label="개인 통계" />
-        <Tab label="랭킹" />
-        <Tab label="배틀로얄" />
-      </Tabs>
+      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, bgcolor: "#fff", px: 2 }}>
+        <Tabs
+          value={tab}
+          onChange={(e, value) => setTab(value)}
+          variant="fullWidth"
+          sx={{
+            minHeight: 58,
+            borderBottom: "1px solid #f0f1f3",
+            "& .MuiTab-root": {
+              minHeight: 58,
+              py: 0,
+              color: "#a5a8ae",
+              fontSize: 14,
+              fontWeight: 500,
+            },
+            "& .Mui-selected": { color: "#0868f7 !important", fontWeight: 800 },
+            "& .MuiTabs-indicator": { height: 2, bgcolor: "#0868f7" },
+          }}
+        >
+          <Tab label="개인통계" />
+          <Tab label="랭킹" />
+          <Tab label="배틀로얄" />
+        </Tabs>
+      </Box>
 
-      {tab === 0 && <PersonalStatsView />}
+      <Box sx={{ p: 2 }}>
+        {tab === 0 && <PersonalStatsView />}
 
-      {tab === 1 && (
-        <RankingView
-          rankingRange={rankingRange}
-          setRankingRange={setRankingRange}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-        />
-      )}
+        {tab === 1 && (
+          <RankingView
+            rankingRange={rankingRange}
+            setRankingRange={setRankingRange}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+          />
+        )}
 
-      {tab === 2 && <BattleRankingView />}
+        {tab === 2 && <BattleRankingView />}
+      </Box>
     </Box>
   );
 }
@@ -76,45 +108,24 @@ function PersonalStatsView() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [message, setMessage] = useState("");
 
-  const loadPersonalStats = async () => {
-    setMessage("");
-
-    const { data: statData, error: statError } = await supabase.rpc("get_my_stats");
-
-    if (statError) {
-      setMessage(statError.message);
-      return;
-    }
-
-    setMyStats(statData?.[0] || myStats);
-
-    const { data: yearData, error: yearError } = await supabase.rpc(
-      "get_my_monthly_avg",
-      { p_year: year }
-    );
-
-    if (yearError) {
-      setMessage(yearError.message);
-      return;
-    }
-
-    setYearlyAvgData(yearData || []);
-
-    const { data: recentData, error: recentError } = await supabase.rpc(
-      "get_my_recent_games",
-      { p_limit: 5 }
-    );
-
-    if (recentError) {
-      setMessage(recentError.message);
-      return;
-    }
-
-    setRecentGames(recentData || []);
-  };
-
   useEffect(() => {
-    loadPersonalStats();
+    let active = true;
+
+    fetchPersonalStats(year).then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setMessage("");
+      setMyStats((previous) => data.stats || previous);
+      setYearlyAvgData(data.monthlyAverages);
+      setRecentGames(data.recentGames);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [year]);
 
   return (
@@ -124,22 +135,18 @@ function PersonalStatsView() {
       <Card sx={cardSx}>
         <Box
           sx={{
-            p: 2,
-            background: "linear-gradient(135deg, #1976d2, #42a5f5)",
+            p: 2.2,
+            background: "linear-gradient(135deg, #0868f7, #438cff)",
             color: "#fff",
           }}
         >
-          <Typography fontWeight={800} sx={{ mb: 2 }}>
-            내 통계
-          </Typography>
-
-          <Stack direction="row" alignItems="center" spacing={2}>
+          <Stack direction="row" alignItems="center" spacing={1.4}>
             <Avatar
               sx={{
-                width: 70,
-                height: 70,
+                width: 52,
+                height: 52,
                 bgcolor: "rgba(255,255,255,0.24)",
-                fontSize: 28,
+                fontSize: 21,
                 fontWeight: 900,
               }}
             >
@@ -147,34 +154,36 @@ function PersonalStatsView() {
             </Avatar>
 
             <Box sx={{ textAlign: "left" }}>
-              <Typography variant="h5" fontWeight={900}>
+              <Typography color="rgba(255,255,255,.78)" sx={{ fontSize: 11 }}>
+                나의 기록
+              </Typography>
+              <Typography fontSize={18} fontWeight={900}>
                 {profile?.nickname || profile?.name || "회원"}
               </Typography>
-              <Typography sx={{ opacity: 0.9 }}>
+              <Typography sx={{ mt: 0.2, opacity: 0.8, fontSize: 11 }}>
                 클럽 가입일 {profile?.join_date || "-"}
               </Typography>
             </Box>
           </Stack>
         </Box>
 
-        <CardContent sx={{ p: 0 }}>
-          <StatRow label="평균 점수" value={formatNumber(myStats.avg_score, 1)} />
-          <StatRow label="최고 점수" value={myStats.high_score || 0} />
-          <StatRow label="참석 횟수" value={`${myStats.attendance_count || 0}회`} />
-          <StatRow
-            label="출석률"
-            value={`${formatNumber(myStats.attendance_rate, 1)}%`}
-            highlight
-          />
-          <StatRow
-            label="누적 점수"
-            value={Number(myStats.total_score || 0).toLocaleString()}
-            last
-          />
+        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0.8 }}>
+            <SummaryStat label="평균" value={formatNumber(myStats.avg_score, 1)} suffix="점" primary />
+            <SummaryStat label="최고" value={myStats.high_score || 0} suffix="점" />
+            <SummaryStat label="게임" value={myStats.game_cnt || 0} suffix="게임" />
+            <SummaryStat label="참석" value={myStats.attendance_count || 0} suffix="회" />
+            <SummaryStat label="출석률" value={formatNumber(myStats.attendance_rate, 1)} suffix="%" primary />
+            <SummaryStat
+              label="누적"
+              value={Number(myStats.total_score || 0).toLocaleString()}
+              suffix="점"
+            />
+          </Box>
         </CardContent>
       </Card>
 
-      <Card sx={cardSx}>
+      <Card sx={{ ...cardSx, order: 3 }}>
         <CardContent>
           <Stack direction="row" alignItems="center" sx={{ mb: 2 }}>
             <Typography fontWeight={800}>
@@ -205,7 +214,7 @@ function PersonalStatsView() {
         </CardContent>
       </Card>
 
-      <Card sx={cardSx}>
+      <Card sx={{ ...cardSx, order: 2 }}>
         <CardContent>
           <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
             <Typography fontWeight={800}>
@@ -234,39 +243,66 @@ function PersonalStatsView() {
               기록이 없습니다.
             </Typography>
           ) : (
-            recentGames.map((item, index) => (
-              <Box key={item.meeting_id}>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py={1}
-                  spacing={1}
-                >
+            <>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "56px minmax(0, 1fr) 48px 58px",
+                  columnGap: 0.75,
+                  px: 0.25,
+                  pb: 0.7,
+                }}
+              >
+                {["날짜", "장소", "게임", "평균"].map((label, index) => (
                   <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ width: 76 }}
+                    key={label}
+                    color="#858991"
+                    textAlign={index < 2 ? "left" : "right"}
+                    sx={{ fontSize: 10.5, fontWeight: 700 }}
                   >
-                    {formatDate(item.meeting_dt)}
+                    {label}
                   </Typography>
-
-                  <Typography variant="body2" sx={{ flex: 1 }} noWrap>
-                    {item.center_nm || "-"}
-                  </Typography>
-
-                  <Typography variant="body2" sx={{ width: 48 }}>
-                    {item.game_count}게임
-                  </Typography>
-
-                  <Typography variant="body2" fontWeight={700}>
-                    {item.scores}
-                  </Typography>
-                </Stack>
-
-                {index < recentGames.length - 1 && <Divider />}
+                ))}
               </Box>
-            ))
+
+              {recentGames.map((item, index) => (
+                <Box key={item.meeting_id}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "56px minmax(0, 1fr) 48px 58px",
+                      alignItems: "center",
+                      columnGap: 0.75,
+                      minHeight: 34,
+                      px: 0.25,
+                    }}
+                  >
+                    <Typography color="#858991" sx={{ fontSize: 11.5 }}>
+                      {formatDate(item.meeting_dt)}
+                    </Typography>
+
+                    <Typography noWrap color="#25282d" sx={{ fontSize: 12 }}>
+                      {item.center_nm || "-"}
+                    </Typography>
+
+                    <Typography textAlign="right" color="#5f6368" sx={{ fontSize: 11.5 }}>
+                      {item.game_count || 0}게임
+                    </Typography>
+
+                    <Typography
+                      noWrap
+                      textAlign="right"
+                      color="#0868f7"
+                      sx={{ fontSize: 12.5, fontWeight: 900 }}
+                    >
+                      {formatRecentAverage(item)}
+                    </Typography>
+                  </Box>
+
+                  {index < recentGames.length - 1 && <Divider />}
+                </Box>
+              ))}
+            </>
           )}
         </CardContent>
       </Card>
@@ -300,42 +336,23 @@ function RankingView({
   const selectedScoreRanking =
     scoreSort === "AVG" ? avgScoreRanking : highScoreRanking;
 
-  const loadRanking = async () => {
-    setMessage("");
-
-    const { data: scoreData, error: scoreError } = await supabase.rpc(
-      "get_score_ranking",
-      {
-        p_range: rankingRange,
-        p_year: selectedYear,
-      }
-    );
-
-    if (scoreError) {
-      setMessage(scoreError.message);
-      return;
-    }
-
-    setScoreRanking(scoreData || []);
-
-    const { data: attendanceData, error: attendanceError } = await supabase.rpc(
-      "get_attendance_ranking",
-      {
-        p_range: rankingRange,
-        p_year: selectedYear,
-      }
-    );
-
-    if (attendanceError) {
-      setMessage(attendanceError.message);
-      return;
-    }
-
-    setAttendanceRanking(attendanceData || []);
-  };
-
   useEffect(() => {
-    loadRanking();
+    let active = true;
+
+    fetchRankings(rankingRange, selectedYear).then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setMessage("");
+      setScoreRanking(data.scores);
+      setAttendanceRanking(data.attendances);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [rankingRange, selectedYear]);
 
   return (
@@ -468,21 +485,22 @@ function BattleRankingView() {
     });
   }, [battleRanking, sortKey]);
 
-  const loadBattleRanking = async () => {
-    setMessage("");
-
-    const { data, error } = await supabase.rpc("get_battle_ranking");
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setBattleRanking(data || []);
-  };
-
   useEffect(() => {
-    loadBattleRanking();
+    let active = true;
+
+    fetchBattleRanking().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setMessage("");
+      setBattleRanking(data || []);
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
@@ -511,138 +529,109 @@ function BattleRankingView() {
 
 function BattleRankingGrid({ rows }) {
   return (
-    <Card sx={cardSx}>
-      <CardContent>
-        <Box sx={{ overflowX: "auto" }}>
-          <Box sx={{ minWidth: 620 }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "52px 120px 80px 80px 70px 70px 80px",
-                py: 1,
-                bgcolor: "#f5f6fa",
-                borderRadius: 2,
-              }}
-            >
-              {["순위", "이름", "포인트", "참여", "승", "패", "승률"].map(
-                (column) => (
-                  <Typography
-                    key={column}
-                    variant="caption"
-                    color="text.secondary"
-                    textAlign="center"
-                    fontWeight={800}
-                  >
-                    {column}
-                  </Typography>
-                )
-              )}
-            </Box>
-
-            {rows.map((item, index) => (
-              <Box
-                key={item.user_id}
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "52px 120px 80px 80px 70px 70px 80px",
-                  py: 1.1,
-                  borderBottom: "1px solid #eee",
-                  bgcolor: index === 0 ? "#eaf4ff" : "transparent",
-                }}
-              >
-                <GridCell bold>{index + 1}</GridCell>
-                <GridCell bold>{item.nickname || item.user_nm}</GridCell>
-                <GridCell bold>{item.point}</GridCell>
-                <GridCell>{item.battle_count}</GridCell>
-                <GridCell>{item.win_count}</GridCell>
-                <GridCell>{item.lose_count}</GridCell>
-                <GridCell>{formatNumber(item.win_rate, 1)}%</GridCell>
-              </Box>
-            ))}
-
-            {rows.length === 0 && (
-              <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
-                배틀로얄 기록이 없습니다.
+    <Stack spacing={0.8}>
+      {rows.map((item, index) => (
+        <Box
+          key={item.user_id}
+          sx={{
+            p: 1.5,
+            bgcolor: "#fff",
+            border: index === 0 ? "1px solid #bcd8ff" : "1px solid #eceef2",
+            borderRadius: 2,
+          }}
+        >
+          <Stack direction="row" alignItems="center">
+            <RankBadge rank={index + 1} />
+            <Box sx={{ flex: 1, minWidth: 0, ml: 1.2 }}>
+              <Typography fontWeight={900} noWrap sx={{ fontSize: 14 }}>
+                {item.nickname || item.user_nm}
               </Typography>
-            )}
-          </Box>
+              <Typography color="#858991" sx={{ mt: 0.2, fontSize: 11 }}>
+                {item.battle_count}전 {item.win_count}승 {item.lose_count}패
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: "right" }}>
+              <Typography color="#0868f7" fontWeight={900} sx={{ fontSize: 17 }}>
+                {item.point}P
+              </Typography>
+              <Typography color="#858991" sx={{ fontSize: 10.5 }}>
+                승률 {formatNumber(item.win_rate, 1)}%
+              </Typography>
+            </Box>
+          </Stack>
         </Box>
-      </CardContent>
-    </Card>
+      ))}
+
+      {rows.length === 0 && (
+        <Typography color="text.secondary" textAlign="center" sx={{ py: 6 }}>
+          배틀로얄 기록이 없습니다.
+        </Typography>
+      )}
+    </Stack>
   );
 }
 
 function RankingTableCard({ title, columns, rows }) {
   return (
     <Card sx={cardSx}>
-      <CardContent>
-        <Typography fontWeight={800} sx={{ mb: 1.5 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Typography fontWeight={800} sx={{ mb: 1.2, fontSize: 14 }}>
           {title}
         </Typography>
 
-        <Box sx={{ overflowX: "auto" }}>
-          <Box sx={{ minWidth: 420 }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${columns.length}, 1fr)`,
-                py: 1,
-                bgcolor: "#f5f6fa",
-                borderRadius: 2,
-              }}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "48px minmax(0, 1.35fr) 1fr .8fr",
+            py: 0.9,
+            bgcolor: "#f5f7fa",
+            borderRadius: 1.5,
+          }}
+        >
+          {columns.map((column) => (
+            <Typography
+              key={column}
+              color="#858991"
+              textAlign="center"
+              fontWeight={700}
+              sx={{ fontSize: 11 }}
             >
-              {columns.map((column) => (
-                <Typography
-                  key={column}
-                  variant="caption"
-                  color="text.secondary"
-                  textAlign="center"
-                  fontWeight={700}
-                >
-                  {column}
-                </Typography>
-              ))}
-            </Box>
-
-            {rows.map((row, rowIndex) => (
-              <Box
-                key={rowIndex}
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${columns.length}, 1fr)`,
-                  py: 1,
-                  borderBottom: "1px solid #eee",
-                  bgcolor: rowIndex === 0 ? "#eaf4ff" : "transparent",
-                }}
-              >
-                {row.map((cell, cellIndex) => (
-                  <Typography
-                    key={cellIndex}
-                    textAlign="center"
-                    fontWeight={
-                      rowIndex === 0 || cellIndex === 1 || cellIndex === 2
-                        ? 800
-                        : 500
-                    }
-                    color={
-                      rowIndex === 0 && cellIndex === 2
-                        ? "primary.main"
-                        : "text.primary"
-                    }
-                  >
-                    {cell}
-                  </Typography>
-                ))}
-              </Box>
-            ))}
-
-            {rows.length === 0 && (
-              <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
-                조회된 기록이 없습니다.
-              </Typography>
-            )}
-          </Box>
+              {column}
+            </Typography>
+          ))}
         </Box>
+
+        {rows.map((row, rowIndex) => (
+          <Box
+            key={rowIndex}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "48px minmax(0, 1.35fr) 1fr .8fr",
+              py: 1.15,
+              borderBottom: "1px solid #f0f1f3",
+              alignItems: "center",
+            }}
+          >
+            {row.map((cell, cellIndex) => (
+              <Typography
+                key={cellIndex}
+                noWrap
+                textAlign="center"
+                fontWeight={cellIndex === 1 || cellIndex === 2 ? 800 : 500}
+                color={cellIndex === 2 ? "#0868f7" : "#25282d"}
+                sx={{ fontSize: 12.5 }}
+              >
+                {cell}
+              </Typography>
+            ))}
+          </Box>
+        ))}
+
+        {rows.length === 0 && (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
+            조회된 기록이 없습니다.
+          </Typography>
+        )}
       </CardContent>
     </Card>
   );
@@ -662,22 +651,32 @@ function YearlyBarChart({ data }) {
   return (
     <Box
       sx={{
-        height: 210,
-        display: "flex",
-        alignItems: "flex-end",
-        gap: 1.5,
-        px: 1,
-        pt: 2,
-        borderBottom: "1px solid #eee",
+        overflowX: "auto",
+        mx: -0.5,
+        px: 0.5,
+        pb: 0.5,
+        scrollbarWidth: "thin",
       }}
     >
+      <Box
+        sx={{
+          height: 210,
+          minWidth: Math.max(300, data.length * 62),
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 1,
+          px: 1,
+          pt: 2,
+          borderBottom: "1px solid #eceef2",
+        }}
+      >
       {data.map((item) => {
         const score = Number(item.avg_score || 0);
         const height = Math.max((score / maxScore) * 150, 24);
 
         return (
-          <Box key={item.year_no} sx={{ flex: 1, textAlign: "center" }}>
-            <Typography variant="caption" fontWeight={700}>
+          <Box key={item.year_no} sx={{ flex: 1, minWidth: 48, textAlign: "center" }}>
+            <Typography color="#25282d" sx={{ fontSize: 11, fontWeight: 800 }}>
               {score.toFixed(1)}
             </Typography>
 
@@ -688,50 +687,63 @@ function YearlyBarChart({ data }) {
                 mx: "auto",
                 width: 22,
                 borderRadius: "8px 8px 0 0",
-                background: "linear-gradient(180deg, #42a5f5, #1976d2)",
+                background: "linear-gradient(180deg, #438cff, #0868f7)",
               }}
             />
 
             <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 1 }}
+              color="#858991"
+              sx={{ display: "block", mt: 1, fontSize: 10.5 }}
             >
               {item.year_label}
             </Typography>
           </Box>
         );
       })}
+      </Box>
     </Box>
   );
 }
 
-function StatRow({ label, value, highlight = false, last = false }) {
+function SummaryStat({ label, value, suffix, primary = false }) {
   return (
-    <Box sx={{ textAlign: "left" }}>
+    <Box
+      sx={{
+        minWidth: 0,
+        px: 1,
+        py: 1.15,
+        bgcolor: "#f5f7fa",
+        borderRadius: 1.5,
+        textAlign: "left",
+      }}
+    >
+      <Typography color="#858991" sx={{ fontSize: 10.5 }}>
+        {label}
+      </Typography>
       <Stack
         direction="row"
-        alignItems="center"
-        sx={{ px: 2, py: 1.6 }}
+        spacing={0.3}
+        sx={{
+          mt: 0.55,
+          width: "100%",
+          minHeight: 19,
+          alignItems: "flex-end",
+          justifyContent: "flex-end",
+          whiteSpace: "nowrap",
+        }}
       >
         <Typography
-          color="text.secondary"
-          fontWeight={700}
-          sx={{ flex: 1, textAlign: "left" }}
-        >
-          {label}
-        </Typography>
-
-        <Typography
+          noWrap
+          color={primary ? "#0868f7" : "#25282d"}
           fontWeight={900}
-          color={highlight ? "primary.main" : "text.primary"}
-          sx={{ textAlign: "right" }}
+          sx={{ fontSize: 16, lineHeight: 1 }}
         >
           {value}
         </Typography>
+        <Typography color="#858991" sx={{ fontSize: 9.5, lineHeight: 1 }}>
+          {suffix}
+        </Typography>
       </Stack>
-
-      {!last && <Divider />}
     </Box>
   );
 }
@@ -746,7 +758,7 @@ function RangeButton({ active, label, onClick }) {
         textAlign: "center",
         borderRadius: 99,
         bgcolor: active ? "#fff" : "transparent",
-        color: active ? "primary.main" : "text.secondary",
+        color: active ? "#0868f7" : "#858991",
         fontWeight: 800,
         fontSize: 14,
         cursor: "pointer",
@@ -758,12 +770,53 @@ function RangeButton({ active, label, onClick }) {
   );
 }
 
-function GridCell({ children, bold = false }) {
+function RankBadge({ rank }) {
+  const featured = rank <= 3;
   return (
-    <Typography textAlign="center" fontWeight={bold ? 800 : 500}>
-      {children}
-    </Typography>
+    <Box
+      sx={{
+        width: 34,
+        height: 34,
+        flexShrink: 0,
+        display: "grid",
+        placeItems: "center",
+        borderRadius: "50%",
+        bgcolor: featured ? "#eaf3ff" : "#f5f6f8",
+        color: featured ? "#0868f7" : "#858991",
+        fontSize: 13,
+        fontWeight: 900,
+      }}
+    >
+      {rank}
+    </Box>
   );
+}
+
+function getRecentAverage(item) {
+  const suppliedAverage = Number(item.avg_score);
+  if (Number.isFinite(suppliedAverage)) {
+    return suppliedAverage.toFixed(1);
+  }
+
+  const gameCount = Number(item.game_count);
+  const totalScore = Number(item.total_score);
+  if (gameCount > 0 && Number.isFinite(totalScore)) {
+    return (totalScore / gameCount).toFixed(1);
+  }
+
+  const scores = Array.isArray(item.scores)
+    ? item.scores.map(Number).filter(Number.isFinite)
+    : String(item.scores || "")
+        .match(/\d+(?:\.\d+)?/g)
+        ?.map(Number) || [];
+
+  if (scores.length === 0) return "-";
+  return (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1);
+}
+
+function formatRecentAverage(item) {
+  const average = getRecentAverage(item);
+  return average === "-" ? average : `${average}점`;
 }
 
 function formatNumber(value, digits = 0) {
@@ -785,39 +838,15 @@ function formatDate(value) {
   });
 }
 
-function getCurrentMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function getMonthOptions() {
-  const now = new Date();
-  const result = [];
-
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}`;
-
-    result.push({
-      value,
-      label: `${date.getFullYear()}년 ${date.getMonth() + 1}월`,
-    });
-  }
-
-  return result;
-}
-
 function getYearOptions() {
   const now = new Date().getFullYear();
   return [now, now - 1, now - 2];
 }
 
 const cardSx = {
-  borderRadius: 3,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+  borderRadius: 2,
+  border: "1px solid #eceef2",
+  boxShadow: "none",
 };
 
 export default RankingPage;

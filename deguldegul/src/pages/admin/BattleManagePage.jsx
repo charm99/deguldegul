@@ -16,10 +16,18 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
-import { supabase } from "../../services/supabase";
+import {
+  fetchBattlePointHistory,
+  refreshBattleResults,
+} from "../../features/admin/api/adminApi";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 function BattleManagePage() {
   const navigate = useNavigate();
+  const { getCodeName } = useCommonCodes();
+  const getPointTypeLabel = (value) =>
+    getCodeName(COMMON_CODE_GROUP.POINT_TYPE, value);
 
   const [histories, setHistories] = useState([]);
   const [message, setMessage] = useState("");
@@ -27,27 +35,7 @@ function BattleManagePage() {
   const loadHistories = async () => {
     setMessage("");
 
-    const { data, error } = await supabase
-      .from("degul_point_history")
-      .select(`
-        point_hist_id,
-        user_id,
-        meeting_id,
-        battle_id,
-        point_tp,
-        point,
-        memo,
-        created_at,
-        user:user_id (
-          name,
-          nickname
-        ),
-        meeting:meeting_id (
-          meeting_nm,
-          meeting_dt
-        )
-      `)
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchBattlePointHistory();
 
     if (error) {
       setMessage(error.message);
@@ -58,22 +46,36 @@ function BattleManagePage() {
   };
 
   const handleRefresh = async () => {
-    const ok = confirm("미확정 배틀 결과를 최신화할까요?");
+    const ok = confirm(
+      "미확정 배틀 결과와 포인트를 최신화할까요?\n진행 중인 캡슐 회차가 있으면 배틀 참가자에게 코인 1개가 자동 지급됩니다."
+    );
     if (!ok) return;
 
-    const { data, error } = await supabase.rpc("refresh_battle_results");
+    const { data, error } = await refreshBattleResults();
 
     if (error) {
       alert(error.message);
       return;
     }
 
-    alert(`${data || 0}건의 배틀 결과가 최신화되었습니다.`);
+    alert(
+      `${data || 0}건의 배틀 결과가 최신화되었습니다.\n대상 배틀 참가자의 코인도 중복 없이 지급되었습니다.`
+    );
     await loadHistories();
   };
 
   useEffect(() => {
-    loadHistories();
+    let active = true;
+
+    fetchBattlePointHistory().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setMessage(error.message);
+      else setHistories(data || []);
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
@@ -179,20 +181,6 @@ function Cell({ children, bold = false }) {
       {children}
     </Typography>
   );
-}
-
-function getPointTypeLabel(value) {
-  const map = {
-    WIN: "승리",
-    LOS: "패배",
-    BYE: "부전승",
-    S05: "5연승",
-    S10: "10연승",
-    S15: "15연승",
-    MAN: "수동",
-  };
-
-  return map[value] || value;
 }
 
 function getPointColor(value) {

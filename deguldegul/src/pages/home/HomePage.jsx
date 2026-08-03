@@ -1,161 +1,59 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../../assets/logo.png";
-
 import {
+  Alert,
   Box,
-  Typography,
-  Card,
-  CardContent,
-  Stack,
   Button,
   Chip,
-  Alert,
   Divider,
+  IconButton,
+  Stack,
+  Typography,
 } from "@mui/material";
-
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import CampaignIcon from "@mui/icons-material/Campaign";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import AddIcon from "@mui/icons-material/Add";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import EventAvailableIcon from "@mui/icons-material/EventAvailable";
+import CircleIcon from "@mui/icons-material/Circle";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import MonetizationOnRoundedIcon from "@mui/icons-material/MonetizationOnRounded";
 
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { fetchCapsuleDashboard } from "../../features/capsule/api/capsuleApi";
+import { fetchHomeDashboard } from "../../features/home/api/homeApi";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
+
+const BLUE = "#0868f7";
+const SOFT_BLUE = "#f3f7fe";
 
 function HomePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { getCodeName } = useCommonCodes();
 
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
   const [selectedMeetingId, setSelectedMeetingId] = useState(null);
   const [myAttendances, setMyAttendances] = useState({});
-  const [notice, setNotice] = useState(null);
+  const [notices, setNotices] = useState([]);
+  const [freeBoards, setFreeBoards] = useState([]);
+  const [boardTab, setBoardTab] = useState("NOT");
   const [myStat, setMyStat] = useState({
     avgScore: "-",
     highScore: "-",
     gameCnt: 0,
   });
   const [message, setMessage] = useState("");
+  const [capsuleDashboard, setCapsuleDashboard] = useState(null);
 
   const selectedMeeting =
     upcomingMeetings.find((item) => item.meeting_id === selectedMeetingId) ||
     upcomingMeetings[0] ||
     null;
-
   const selectedAttendance = selectedMeeting
     ? myAttendances[selectedMeeting.meeting_id]
     : null;
-
-  const loadHomeData = async () => {
-    setMessage("");
-
-    const now = new Date().toISOString();
-
-    const { data: meetingData, error: meetingError } = await supabase
-      .from("degul_meeting")
-      .select(`
-        meeting_id,
-        meeting_nm,
-        meeting_tp,
-        meeting_dt,
-        status,
-        memo,
-        center:center_id (
-          center_nm,
-          address
-        )
-      `)
-      .eq("use_yn", "Y")
-      .neq("status", "CNL")
-      .gte("meeting_dt", now)
-      .order("meeting_dt", { ascending: true })
-      .limit(3);
-
-    if (meetingError) {
-      setMessage(meetingError.message);
-      return;
-    }
-
-    const meetings = meetingData || [];
-    setUpcomingMeetings(meetings);
-    setSelectedMeetingId((prev) => prev || meetings[0]?.meeting_id || null);
-
-    if (profile?.id && meetings.length > 0) {
-      const meetingIds = meetings.map((item) => item.meeting_id);
-
-      const { data: attendanceData } = await supabase
-        .from("degul_attendance")
-        .select("*")
-        .eq("user_id", profile.id)
-        .in("meeting_id", meetingIds);
-
-      const attendanceMap = {};
-
-      (attendanceData || []).forEach((item) => {
-        attendanceMap[item.meeting_id] = item;
-      });
-
-      setMyAttendances(attendanceMap);
-    } else {
-      setMyAttendances({});
-    }
-
-    const { data: noticeData, error: noticeError } = await supabase
-      .from("degul_board")
-      .select(`
-        board_id,
-        title,
-        created_at,
-        view_cnt,
-        writer:writer_id (
-          name,
-          nickname
-        )
-      `)
-      .eq("board_tp", "NOT")
-      .eq("use_yn", "Y")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (noticeError) {
-      setMessage(noticeError.message);
-      return;
-    }
-
-    setNotice(noticeData || null);
-
-    if (profile?.id) {
-      const { data: scoreData, error: scoreError } = await supabase
-        .from("degul_score")
-        .select("score")
-        .eq("user_id", profile.id);
-
-      if (scoreError) {
-        setMessage(scoreError.message);
-        return;
-      }
-
-      const scores = scoreData || [];
-      const gameCnt = scores.length;
-      const highScore =
-        gameCnt > 0 ? Math.max(...scores.map((item) => item.score)) : "-";
-      const avgScore =
-        gameCnt > 0
-          ? (
-              scores.reduce((sum, item) => sum + item.score, 0) / gameCnt
-            ).toFixed(1)
-          : "-";
-
-      setMyStat({
-        avgScore,
-        highScore,
-        gameCnt,
-      });
-    }
-  };
 
   const goCalendarForMeeting = () => {
     if (!selectedMeeting) {
@@ -163,312 +61,368 @@ function HomePage() {
       return;
     }
 
-    navigate("/calendar", {
-      state: {
-        meetingId: selectedMeeting.meeting_id,
-        meetingDate: getDateKey(selectedMeeting.meeting_dt),
-      },
+    const params = new URLSearchParams({
+      date: getDateKey(selectedMeeting.meeting_dt),
+      meetingId: String(selectedMeeting.meeting_id),
     });
+    navigate(`/calendar?${params.toString()}`);
   };
 
   useEffect(() => {
-    loadHomeData();
+    let active = true;
+
+    fetchHomeDashboard(profile?.id).then(({ data, error }) => {
+      if (!active) return;
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      setMessage("");
+      setUpcomingMeetings(data.meetings);
+      setSelectedMeetingId((previous) =>
+        data.meetings.some((item) => item.meeting_id === previous)
+          ? previous
+          : data.meetings[0]?.meeting_id || null
+      );
+      setMyAttendances(data.attendanceByMeeting);
+      setNotices(data.notices);
+      setFreeBoards(data.freeBoards);
+      setMyStat(data.stats);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [profile?.id]);
 
+  useEffect(() => {
+    fetchCapsuleDashboard().then(({ data, error }) => {
+      if (!error && data?.round) setCapsuleDashboard(data);
+    });
+  }, []);
+
   return (
-    <Box sx={{ p: 2, pb: 10 }}>
-      <Stack
-        direction="row"
-        justifyContent="center"
-        alignItems="center"
-        spacing={1.2}
-        sx={{ mb: 1.5 }}
-      >
-        <Box
-          component="img"
-          src={logo}
-          alt="데굴데굴"
-          sx={{
-            width: 44,
-            height: 44,
-            objectFit: "contain",
-          }}
-        />
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "#f7f7f8",
+        color: "#17191d",
+        pb: 10,
+        textAlign: "left",
+        "& .MuiTypography-root": {
+          fontFamily: 'Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif',
+          letterSpacing: "-0.025em",
+        },
+      }}
+    >
+      <Box sx={{ bgcolor: BLUE, color: "#fff", px: 2.25, pt: 2.5, pb: 2 }}>
+        <Stack direction="row" sx={{ mb: 2, minHeight: 32, alignItems: "center" }}>
+          <Typography sx={{ flex: 1, fontSize: 15, lineHeight: 1.4, fontWeight: 400 }}>
+            안녕하세요! {profile?.nickname || profile?.name || "회원"}님! 😊
+          </Typography>
+          <IconButton aria-label="알림" sx={{ width: 36, height: 36, color: "#fff" }}>
+            <NotificationsNoneRoundedIcon sx={{ fontSize: 23 }} />
+          </IconButton>
+        </Stack>
 
-        <Typography variant="h5" fontWeight={900}>
-          안녕하세요, {profile?.nickname || profile?.name || "회원"}님 👋
-        </Typography>
-      </Stack>
+        {message && <Alert severity="error" sx={{ mb: 1.5 }}>{message}</Alert>}
 
-      {message && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {message}
-        </Alert>
+        {upcomingMeetings.length > 0 ? (
+          <Stack direction="row" spacing={1.2}>
+            {upcomingMeetings.map((meeting) => (
+              <MeetingMiniCard
+                key={meeting.meeting_id}
+                meeting={meeting}
+                attendance={myAttendances[meeting.meeting_id]}
+                selected={meeting.meeting_id === selectedMeeting?.meeting_id}
+                onClick={() => setSelectedMeetingId(meeting.meeting_id)}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Box sx={{ bgcolor: "rgba(255,255,255,.14)", borderRadius: 2, p: 2 }}>
+            예정된 모임이 없습니다.
+          </Box>
+        )}
+      </Box>
+
+      {selectedMeeting && (
+        <Box sx={{ bgcolor: "#fff", px: 2.25, py: 2, borderBottom: "4px solid #f5f5f6" }}>
+          <Stack direction="row" spacing={0.7} sx={{ mb: 0.8 }}>
+            <Chip
+              label={getCodeName(COMMON_CODE_GROUP.MEETING_TYPE, selectedMeeting.meeting_tp)}
+              size="small"
+              sx={{ height: 22, bgcolor: "#eaf3ff", color: BLUE, fontSize: 10.5, fontWeight: 700 }}
+            />
+            <Chip
+              label={getMeetingStatusLabel(selectedMeeting.status)}
+              size="small"
+              sx={{ height: 22, bgcolor: "#f1edff", color: "#7357d8", fontSize: 10.5, fontWeight: 700 }}
+            />
+          </Stack>
+
+          <Typography color="#17191d" fontWeight={800} sx={{ mb: 1.4, fontSize: 16, lineHeight: 1.4 }}>
+            {selectedMeeting.meeting_nm}
+          </Typography>
+
+          <Stack direction="row" spacing={1.2} sx={{ mb: 1.3 }}>
+            <MeetingInfo label="장소" value={selectedMeeting.center?.center_nm || "-"} />
+            <MeetingInfo
+              label="시간"
+              value={formatTime(selectedMeeting.meeting_dt)}
+            />
+            <MeetingInfo
+              label="게임비"
+              value={formatCost(selectedMeeting.center?.game_cost, selectedMeeting.meeting_tp)}
+            />
+          </Stack>
+
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={goCalendarForMeeting}
+            endIcon={<ChevronRightIcon />}
+            sx={{
+              height: 44,
+              bgcolor: BLUE,
+              borderRadius: 1.5,
+              boxShadow: "none",
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {selectedAttendance ? "참석정보 수정" : "참석투표하기"}
+          </Button>
+        </Box>
       )}
 
-      <Card sx={cardSx}>
-        <CardContent sx={{ p: 2.4 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
-          >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CalendarMonthIcon color="primary" />
-              <Typography fontWeight={900} fontSize={20}>
-                다가오는 모임
-              </Typography>
-            </Stack>
-          </Stack>
-
-          {upcomingMeetings.length > 0 ? (
-            <>
-              <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                {upcomingMeetings.map((meeting) => (
-                  <MeetingMiniCard
-                    key={meeting.meeting_id}
-                    meeting={meeting}
-                    selected={meeting.meeting_id === selectedMeeting?.meeting_id}
-                    onClick={() => setSelectedMeetingId(meeting.meeting_id)}
-                  />
-                ))}
+      <HomeSection
+        title={boardTab === "NOT" ? "최신공지" : "자유게시판"}
+        onMore={() => navigate(`/board?type=${boardTab}`)}
+        boardTab={boardTab}
+        onBoardTabChange={setBoardTab}
+      >
+        {(boardTab === "NOT" ? notices : freeBoards).length > 0 ? (
+          (boardTab === "NOT" ? notices : freeBoards).map((notice, index, rows) => (
+            <Box key={notice.board_id}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                onClick={() => navigate(`/board/${notice.board_id}`)}
+                sx={{ py: 1.7, cursor: "pointer" }}
+              >
+                {boardTab === "NOT" && index === 0 && (
+                  <CampaignOutlinedIcon sx={{ color: "#ff324a", fontSize: 19 }} />
+                )}
+                <Typography
+                  noWrap
+                  sx={{
+                    flex: 1,
+                    color: "#25272b",
+                    fontSize: 14,
+                    fontWeight: boardTab === "NOT" && index === 0 ? 700 : 500,
+                  }}
+                >
+                  {notice.title}
+                </Typography>
+                <Typography color="#555a63" sx={{ fontSize: 12.5 }}>
+                  {formatShortDate(notice.created_at)}
+                </Typography>
               </Stack>
-
-              {selectedMeeting && (
-                <>
-                  <Box sx={{ mb: 1.5 }}>
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      spacing={1}
-                    >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography fontWeight={900} noWrap>
-                          {selectedMeeting.meeting_nm}
-                        </Typography>
-
-                        <Stack
-                          direction="row"
-                          spacing={0.7}
-                          alignItems="center"
-                          sx={{ mt: 0.7 }}
-                        >
-                          <PlaceOutlinedIcon
-                            sx={{ fontSize: 18, color: "text.secondary" }}
-                          />
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            fontWeight={700}
-                            noWrap
-                          >
-                            {selectedMeeting.center?.center_nm || "-"}
-                          </Typography>
-                        </Stack>
-                      </Box>
-
-                      <Chip
-                        label={getMeetingTypeLabel(selectedMeeting.meeting_tp)}
-                        size="small"
-                        color={
-                          selectedMeeting.meeting_tp === "REG"
-                            ? "primary"
-                            : "default"
-                        }
-                        sx={{ fontWeight: 800 }}
-                      />
-                    </Stack>
-                  </Box>
-
-                  <Box
-                    sx={{
-                      mt: 1.5,
-                      p: 1.6,
-                      borderRadius: 3,
-                      bgcolor: "#f3f7ff",
-                    }}
-                  >
-                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          내 참석 상태
-                        </Typography>
-
-                        <Typography
-                          fontWeight={900}
-                          color="primary.main"
-                          fontSize={18}
-                        >
-                          {selectedAttendance
-                            ? getAttendanceLabel(selectedAttendance.attendance_tp)
-                            : "미투표"}
-                          {selectedAttendance?.battle_join_yn === "Y"
-                            ? " · 배틀참가"
-                            : ""}
-                        </Typography>
-                      </Box>
-
-                      <Button
-                        variant="outlined"
-                        size="medium"
-                        endIcon={<ChevronRightIcon />}
-                        startIcon={<EventAvailableIcon />}
-                        onClick={goCalendarForMeeting}
-                        sx={{
-                          borderRadius: 2,
-                          fontWeight: 900,
-                          whiteSpace: "nowrap",
-                          bgcolor: "#fff",
-                        }}
-                      >
-                        투표하기
-                      </Button>
-                    </Stack>
-                  </Box>
-                </>
-              )}
-            </>
-          ) : (
-            <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
-              예정된 모임이 없습니다.
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card sx={cardSx}>
-        <CardContent sx={{ p: 2.4 }}>
-          <Stack direction="row" alignItems="center" sx={{ mb: 2 }}>
-            <CampaignIcon color="primary" sx={{ mr: 1 }} />
-
-            <Typography fontWeight={900} fontSize={20}>
-              최신 공지
-            </Typography>
-
-            <Box sx={{ flex: 1 }} />
-
-            <Stack
-              direction="row"
-              spacing={0.2}
-              alignItems="center"
-              onClick={() => navigate("/board")}
-              sx={{
-                cursor: "pointer",
-                color: "text.secondary",
-              }}
-            >
-              <Typography fontWeight={700} fontSize={14}>
-                더보기
-              </Typography>
-              <ChevronRightIcon fontSize="small" />
-            </Stack>
-          </Stack>
-          
-
-          {notice ? (
-            <Box
-              onClick={() => navigate(`/board/${notice.board_id}`)}
-              sx={{ cursor: "pointer" }}
-            >
-              <Typography fontWeight={900}>{notice.title}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>
-                {notice.writer?.nickname || notice.writer?.name || "-"} ·{" "}
-                {formatDate(notice.created_at)} · 조회 {notice.view_cnt}
-              </Typography>
+              {index < rows.length - 1 && <Divider sx={{ borderColor: "#eceef1" }} />}
             </Box>
-          ) : (
-            <Box sx={{ textAlign: "center", py: 2 }}>
-              <Typography color="text.secondary">등록된 공지가 없습니다.</Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.6 }}>
-                새로운 소식을 기대해 주세요!
-              </Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+          ))
+        ) : (
+          <Typography color="text.secondary" sx={{ py: 3, textAlign: "center", fontSize: 13 }}>
+            등록된 게시글이 없습니다.
+          </Typography>
+        )}
+      </HomeSection>
 
-      <Card sx={cardSx}>
-        <CardContent sx={{ p: 2.4 }}>
-          <Stack direction="row" alignItems="center" sx={{ mb: 2 }}>
-            <BarChartIcon color="primary" sx={{ mr: 1 }} />
+      <HomeSection title="개인통계" onMore={() => navigate("/ranking")}>
+        <Stack direction="row" spacing={1.2}>
+          <StatBox label="평균점수" value={myStat.avgScore} suffix="점" />
+          <StatBox label="최고점수" value={myStat.highScore} suffix="점" />
+          <StatBox label="총게임" value={myStat.gameCnt} suffix="게임" />
+        </Stack>
+      </HomeSection>
 
-            <Typography fontWeight={900} fontSize={20}>
-              개인통계
-            </Typography>
-
-            <Box sx={{ flex: 1 }} />
-
-            <Stack
-              direction="row"
-              spacing={0.2}
-              alignItems="center"
-              onClick={() => navigate("/ranking")}
-              sx={{
-                cursor: "pointer",
-                color: "text.secondary",
-              }}
-            >
-              <Typography fontWeight={700} fontSize={14}>
-                더보기
-              </Typography>
-              <ChevronRightIcon fontSize="small" />
-            </Stack>
-          </Stack>
-
-          <Stack direction="row" spacing={1.2}>
-            <StatBox label="평균" value={myStat.avgScore} suffix="점" />
-            <StatBox label="최고" value={myStat.highScore} suffix="점" />
-            <StatBox label="게임" value={myStat.gameCnt} suffix="게임" />
-          </Stack>
-        </CardContent>
-      </Card>
+      <CapsuleBanner
+        dashboard={capsuleDashboard}
+        onClick={() => navigate("/capsule")}
+      />
     </Box>
   );
 }
 
-function MeetingMiniCard({ meeting, selected, onClick }) {
+function CapsuleBanner({ dashboard, onClick }) {
+  const hasActiveRound = Boolean(dashboard?.round);
+  const remainRate = hasActiveRound && dashboard.round.total_capsule_cnt
+    ? Math.round(
+        (dashboard.remain_capsule_cnt / dashboard.round.total_capsule_cnt) * 100
+      )
+    : 0;
+
+  return (
+    <Box sx={{ bgcolor: "#fff", px: 2.25, py: 1.7, borderBottom: "4px solid #f5f5f6" }}>
+      <Box
+        component="button"
+        type="button"
+        onClick={onClick}
+        sx={{
+          width: "100%",
+          border: 0,
+          borderRadius: 2.5,
+          p: 1.8,
+          color: "#fff",
+          textAlign: "left",
+          cursor: "pointer",
+          background:
+            "radial-gradient(circle at 85% 20%, rgba(218,116,255,.38), transparent 35%), linear-gradient(135deg, #24103e, #7024b4)",
+          boxShadow: "0 8px 22px rgba(89,33,137,.2)",
+        }}
+      >
+        <Stack direction="row" alignItems="center">
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography color="#d7a9ff" fontWeight={800} sx={{ fontSize: 11 }}>
+              {hasActiveRound ? "진행 중인 이벤트" : "캡슐 이벤트"}
+            </Typography>
+            <Typography fontWeight={900} noWrap sx={{ mt: 0.35, fontSize: 17 }}>
+              배틀로얄 캡슐 뽑기
+            </Typography>
+            <Typography color="#d6c9e1" noWrap sx={{ mt: 0.3, fontSize: 11 }}>
+              {hasActiveRound
+                ? `남은 캡슐 ${dashboard.remain_capsule_cnt}개 · 잔여율 ${remainRate}%`
+                : "이벤트 준비 중 · 뽑기 화면 둘러보기"}
+            </Typography>
+          </Box>
+          {hasActiveRound && <Box sx={{ textAlign: "center", ml: 1.5 }}>
+            <MonetizationOnRoundedIcon sx={{ color: "#ffca28", fontSize: 28 }} />
+            <Typography fontWeight={900} sx={{ fontSize: 15 }}>
+              {dashboard.coin_balance}개
+            </Typography>
+          </Box>}
+          <ChevronRightIcon sx={{ ml: 0.8 }} />
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
+
+function MeetingMiniCard({ meeting, attendance, selected, onClick }) {
   const date = new Date(meeting.meeting_dt);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const week = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
-  const time = date.toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const state = getAttendanceState(attendance?.attendance_tp);
 
   return (
     <Box
+      component="button"
+      type="button"
       onClick={onClick}
       sx={{
         flex: 1,
         minWidth: 0,
-        borderRadius: 3,
-        p: 1.1,
-        textAlign: "center",
+        border: selected ? "2px solid #fff" : "2px solid transparent",
+        borderRadius: 2,
+        bgcolor: "#fff",
+        p: 1.25,
+        minHeight: 100,
+        boxSizing: "border-box",
+        textAlign: "left",
         cursor: "pointer",
-        border: selected ? "2px solid #1976d2" : "1px solid #edf1f7",
-        bgcolor: selected ? "#eaf4ff" : "#f6f8fc",
+        boxShadow: selected ? "0 5px 14px rgba(0,0,0,.18)" : "0 3px 10px rgba(0,0,0,.12)",
       }}
     >
-      <Typography fontWeight={900} color="primary.main" fontSize={18}>
-        {month}.{day}
+      <Typography
+        fontWeight={800}
+        noWrap
+        sx={{ color: selected ? `${BLUE} !important` : "#24262a", fontSize: 14, lineHeight: 1.35 }}
+      >
+        {formatCardDate(date)}
       </Typography>
-
-      <Typography fontWeight={800} color="text.secondary" fontSize={13}>
-        {week}요일
+      <Typography color="#454950" sx={{ mt: 0.15, fontSize: 13, lineHeight: 1.35 }} noWrap>
+        {formatTime(meeting.meeting_dt)}
       </Typography>
+      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1.7 }}>
+        <Typography color="#34373d" noWrap sx={{ flex: 1, fontSize: 13, lineHeight: 1.35 }}>
+          {shortCenterName(meeting.center?.center_nm)}
+        </Typography>
+        {state.icon}
+      </Stack>
+    </Box>
+  );
+}
 
-      <Typography fontWeight={800} fontSize={13} sx={{ mt: 0.6 }}>
-        {time}
+function MeetingInfo({ label, value }) {
+  return (
+    <Box sx={{ flex: 1, minWidth: 0, minHeight: 62, bgcolor: SOFT_BLUE, borderRadius: 1.5, p: 1.2, boxSizing: "border-box" }}>
+      <Typography
+        fontWeight={800}
+        sx={{ color: `${BLUE} !important`, fontSize: 12, lineHeight: 1.3 }}
+      >
+        {label}
       </Typography>
+      <Typography color="#202329" fontWeight={600} noWrap sx={{ mt: 0.35, fontSize: 14, lineHeight: 1.35 }}>{value}</Typography>
+    </Box>
+  );
+}
 
-      <Divider sx={{ my: 0.8 }} />
+function HomeSection({ title, onMore, boardTab, onBoardTabChange, children }) {
+  return (
+    <Box sx={{ bgcolor: "#fff", mt: 0.5, px: 2.25, pt: 2, pb: 2.2 }}>
+      <Stack direction="row" alignItems="center" sx={{ mb: 1.2, minHeight: 24 }}>
+        {onBoardTabChange ? (
+          <Stack direction="row" spacing={2}>
+            <SectionTab
+              active={boardTab === "NOT"}
+              onClick={() => onBoardTabChange("NOT")}
+            >
+              최신공지
+            </SectionTab>
+            <SectionTab
+              active={boardTab === "FRI"}
+              onClick={() => onBoardTabChange("FRI")}
+            >
+              자유게시판
+            </SectionTab>
+          </Stack>
+        ) : (
+          <Typography color="#191b1f" sx={{ fontSize: 15, lineHeight: 1.3, fontWeight: 400 }}>
+            {title}
+          </Typography>
+        )}
+        <Box sx={{ flex: 1 }} />
+        <IconButton aria-label={`${title} 더보기`} size="small" onClick={onMore}>
+          <AddIcon fontSize="small" />
+        </IconButton>
+      </Stack>
+      {children}
+    </Box>
+  );
+}
 
-      <Typography fontWeight={900} fontSize={13} noWrap>
-        {shortCenterName(meeting.center?.center_nm)}
-      </Typography>
+function SectionTab({ active, onClick, children }) {
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={onClick}
+      sx={{
+        appearance: "none",
+        border: 0,
+        bgcolor: "transparent",
+        color: active ? "#181a1e" : "#a4a7ad",
+        p: 0,
+        font: "inherit",
+        fontWeight: active ? 800 : 500,
+        fontSize: 15,
+        lineHeight: 1.3,
+        cursor: "pointer",
+      }}
+    >
+      {children}
     </Box>
   );
 }
@@ -478,64 +432,78 @@ function StatBox({ label, value, suffix }) {
     <Box
       sx={{
         flex: 1,
-        bgcolor: "#f6f8fc",
-        borderRadius: 3,
-        p: 1.4,
-        textAlign: "center",
+        minWidth: 0,
+        height: 69,
+        boxSizing: "border-box",
+        bgcolor: "#f5f6f8",
+        borderRadius: 1.7,
+        px: 1.25,
+        py: 1.05,
       }}
     >
-      <Typography variant="body2" color="text.secondary" fontWeight={800}>
+      <Typography color="#25282e" sx={{ fontSize: 12, lineHeight: 1.25, fontWeight: 400 }}>
         {label}
       </Typography>
-      <Typography fontWeight={900} fontSize={26} color="primary.main">
-        {value}
-      </Typography>
-      <Typography variant="body2" fontWeight={800}>
-        {suffix}
-      </Typography>
+      <Stack
+        direction="row"
+        spacing={0.3}
+        sx={{
+          mt: 0.55,
+          width: "100%",
+          minHeight: 23,
+          alignItems: "flex-end",
+          justifyContent: "flex-end",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <Typography
+          sx={{ color: `${BLUE} !important`, fontSize: 22, lineHeight: 1, fontWeight: 400 }}
+        >
+          {value}
+        </Typography>
+        <Typography color="#4f535b" sx={{ fontSize: 11, lineHeight: 1 }}>{suffix}</Typography>
+      </Stack>
     </Box>
   );
 }
 
+function getAttendanceState(type) {
+  if (["ATD", "LAT"].includes(type)) {
+    return { icon: <CheckCircleIcon sx={{ color: BLUE, fontSize: 19 }} /> };
+  }
+  if (type === "ABS") {
+    return { icon: <HighlightOffIcon sx={{ color: "#ff6b78", fontSize: 19 }} /> };
+  }
+  return { icon: <CircleIcon sx={{ color: "#d2d5da", fontSize: 19 }} /> };
+}
+
+function formatCardDate(date) {
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  return `${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")} ${weekdays[date.getDay()]}요일`;
+}
+
+function formatTime(value) {
+  return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatCost(cost, meetingType) {
+  const unitCost = Number(cost || 0);
+  if (!unitCost) return "-";
+  return `${(unitCost * (meetingType === "REG" ? 4 : 1)).toLocaleString()}원`;
+}
+
+function formatShortDate(value) {
+  const date = new Date(value);
+  return `${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getMeetingStatusLabel(status) {
+  return status === "OPN" ? "진행" : status === "CLS" ? "마감" : "취소";
+}
+
 function shortCenterName(value) {
   if (!value) return "-";
-
-  return value
-    .replaceAll("볼링장", "")
-    .replaceAll("볼링센터", "")
-    .replaceAll("볼링", "")
-    .trim()
-    .slice(0, 5);
-}
-
-function getMeetingTypeLabel(value) {
-  const map = {
-    REG: "정기전",
-    FLS: "번개",
-    EVT: "이벤트",
-  };
-
-  return map[value] || value;
-}
-
-function getAttendanceLabel(value) {
-  const map = {
-    ATD: "참석",
-    LAT: "늦참",
-    PND: "보류",
-    ABS: "불참",
-  };
-
-  return map[value] || "미투표";
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleDateString("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return value.replaceAll("볼링센터", "").replaceAll("볼링장", "").replaceAll("볼링", "").trim();
 }
 
 function getDateKey(value) {
@@ -543,14 +511,7 @@ function getDateKey(value) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 }
-
-const cardSx = {
-  borderRadius: 4,
-  mb: 2,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-};
 
 export default HomePage;

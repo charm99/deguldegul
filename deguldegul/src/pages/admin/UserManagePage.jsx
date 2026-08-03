@@ -19,21 +19,29 @@ import {
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../services/supabase";
+import {
+  fetchUsers,
+  updateUser as updateUserRequest,
+} from "../../features/admin/api/adminApi";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  canManageUsers,
+  canSeePrivateUserInfo,
+} from "../../shared/model/permissions";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 function UserManagePage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [onlyUse, setOnlyUse] = useState(true);
 
-  const [myRole, setMyRole] = useState("");
-  const [authChecked, setAuthChecked] = useState(false);
-
-  const canAccess = ["ADM", "MGR"].includes(myRole);
-  const canSeePhone = myRole === "ADM";
+  const canAccess = canManageUsers(profile);
+  const canSeePhone = canSeePrivateUserInfo(profile);
 
   const pendingUsers = useMemo(
     () => users.filter((user) => user.status === "PND"),
@@ -55,55 +63,12 @@ function UserManagePage() {
     });
   }, [users, onlyUse]);
 
-  const checkManagerAuth = async () => {
-    try {
-      setMessage("");
-
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) throw authError;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("degul_users")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (!["ADM", "MGR"].includes(data?.role)) {
-        alert("회원관리는 관리자 또는 담당자만 접근할 수 있습니다.");
-        navigate("/admin");
-        return;
-      }
-
-      setMyRole(data.role);
-      await loadUsers();
-    } catch (error) {
-      console.error(error);
-      setMessage(error.message || "권한 확인 중 오류가 발생했습니다.");
-    } finally {
-      setAuthChecked(true);
-    }
-  };
-
   const loadUsers = async () => {
     try {
       setLoading(true);
       setMessage("");
 
-      const { data, error } = await supabase
-        .from("degul_users")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await fetchUsers();
 
       if (error) throw error;
 
@@ -117,10 +82,7 @@ function UserManagePage() {
   };
 
   const updateUser = async (id, values) => {
-    const { error } = await supabase
-      .from("degul_users")
-      .update(values)
-      .eq("id", id);
+    const { error } = await updateUserRequest(id, values);
 
     if (error) {
       alert(error.message);
@@ -131,16 +93,8 @@ function UserManagePage() {
   };
 
   useEffect(() => {
-    checkManagerAuth();
+    loadUsers();
   }, []);
-
-  if (!authChecked) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Typography color="text.secondary">권한 확인 중...</Typography>
-      </Box>
-    );
-  }
 
   if (!canAccess) {
     return null;
@@ -309,6 +263,9 @@ function GridHeader({ canSeePhone }) {
 }
 
 function GridRow({ user, onUpdate, canSeePhone }) {
+  const { getCodes, getCodeName } = useCommonCodes();
+  const roles = getCodes(COMMON_CODE_GROUP.ROLE);
+
   return (
     <Box
       sx={{
@@ -345,7 +302,7 @@ function GridRow({ user, onUpdate, canSeePhone }) {
       </Typography>
 
       <Chip
-        label={getStatusLabel(user.status)}
+        label={getCodeName(COMMON_CODE_GROUP.USER_STATUS, user.status)}
         color={
           user.status === "ACT"
             ? "primary"
@@ -364,53 +321,26 @@ function GridRow({ user, onUpdate, canSeePhone }) {
         onChange={(e) => onUpdate(user.id, { role: e.target.value })}
         sx={{ width: 82 }}
       >
-        <MenuItem value="ADM">관리자</MenuItem>
-        <MenuItem value="MGR">담당자</MenuItem>
-        <MenuItem value="STF">스태프</MenuItem>
-        <MenuItem value="MBR">멤버</MenuItem>
+        {roles.map((item) => (
+          <MenuItem key={item.com_cd} value={item.com_cd}>
+            {item.com_nm}
+          </MenuItem>
+        ))}
       </TextField>
 
-      <Typography variant="body2">{getHandLabel(user.hand)}</Typography>
+      <Typography variant="body2">
+        {getCodeName(COMMON_CODE_GROUP.HAND, user.hand)}
+      </Typography>
 
-      <Typography variant="body2">{getBowlTypeLabel(user.bwl_tp)}</Typography>
+      <Typography variant="body2">
+        {getCodeName(COMMON_CODE_GROUP.BOWLING_TYPE, user.bwl_tp)}
+      </Typography>
 
       <Typography variant="body2" color="text.secondary">
         {user.join_date || "-"}
       </Typography>
     </Box>
   );
-}
-
-function getStatusLabel(value) {
-  const map = {
-    PND: "대기",
-    ACT: "정상",
-    SLP: "휴면",
-    REJ: "거절",
-  };
-
-  return map[value] || value;
-}
-
-function getHandLabel(value) {
-  const map = {
-    R: "오른손",
-    L: "왼손",
-  };
-
-  return map[value] || value || "-";
-}
-
-function getBowlTypeLabel(value) {
-  const map = {
-    SPT: "아대",
-    THR: "3핑거",
-    TLS: "덤리스",
-    THD: "투핸드",
-    NON: "없음",
-  };
-
-  return map[value] || value || "-";
 }
 
 export default UserManagePage;

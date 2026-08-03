@@ -7,7 +7,6 @@ import {
   TextField,
   Button,
   Typography,
-  MenuItem,
   Alert,
   Box,
   FormControlLabel,
@@ -18,7 +17,9 @@ import {
   DialogActions,
 } from "@mui/material";
 
-import { supabase } from "../../services/supabase";
+import { createProfile, signUp } from "../../features/auth/api/authApi";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
+import CodeSelect from "../../shared/components/CodeSelect";
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -100,7 +101,7 @@ function SignupPage() {
 
     setMessage("");
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await signUp({
       email: form.email.trim(),
       password: form.password,
     });
@@ -120,7 +121,7 @@ function SignupPage() {
 
     const p_nickname = `${form.name.trim()}(${birthYear})`;
 
-    const { error: profileError } = await supabase.from("degul_users").insert({
+    const { error: profileError } = await createProfile({
       id: userId,
       email: form.email.trim(),
       name: form.name.trim(),
@@ -216,42 +217,29 @@ function SignupPage() {
           fullWidth
         />
 
-        <TextField
-          select
+        <CodeSelect
+          group={COMMON_CODE_GROUP.GENDER}
           label="성별"
           value={form.gender}
           onChange={(e) => handleChange("gender", e.target.value)}
           fullWidth
-        >
-          <MenuItem value="M">남자</MenuItem>
-          <MenuItem value="F">여자</MenuItem>
-        </TextField>
+        />
 
-        <TextField
-          select
+        <CodeSelect
+          group={COMMON_CODE_GROUP.HAND}
           label="주손"
           value={form.hand}
           onChange={(e) => handleChange("hand", e.target.value)}
           fullWidth
-        >
-          <MenuItem value="R">오른손</MenuItem>
-          <MenuItem value="L">왼손</MenuItem>
-        </TextField>
+        />
 
-        <TextField
-          select
+        <CodeSelect
+          group={COMMON_CODE_GROUP.BOWLING_TYPE}
           label="투구방식"
           value={form.bwl_tp}
           onChange={(e) => handleChange("bwl_tp", e.target.value)}
           fullWidth
-        >
-          <MenuItem value="NON">없음(초보)</MenuItem>
-          <MenuItem value="SPT">아대</MenuItem>
-          <MenuItem value="THR">3핑거</MenuItem>
-          <MenuItem value="TLS">덤리스</MenuItem>
-          <MenuItem value="THD">투핸드</MenuItem>
-          <MenuItem value="BCK">백업</MenuItem>
-        </TextField>
+        />
 
         <Box>
           <FormControlLabel

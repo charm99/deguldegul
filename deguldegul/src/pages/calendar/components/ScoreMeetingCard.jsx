@@ -1,100 +1,139 @@
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Divider,
-  Stack,
-  Typography,
-} from "@mui/material";
-
-import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import { Box, Button, Chip, Stack, Typography } from "@mui/material";
 
 import { formatTime } from "../utils/calendarUtils";
-import InfoBox from "./InfoBox";
 
-const cardSx = {
-  borderRadius: 3,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-};
+const BLUE = "#0868f7";
 
 function ScoreMeetingCard({ meeting, scores, onClick }) {
   const total = scores.reduce((sum, item) => sum + Number(item.score || 0), 0);
   const avg = scores.length > 0 ? (total / scores.length).toFixed(1) : "-";
-  const high =
-    scores.length > 0 ? Math.max(...scores.map((item) => item.score)) : "-";
+  const high = scores.length > 0
+    ? Math.max(...scores.map((item) => item.score))
+    : "-";
 
   return (
-    <Card sx={cardSx}>
-      <CardContent sx={{ p: 2 }}>
-        <Stack direction="row" justifyContent="space-between" spacing={1}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography fontWeight={900} textAlign="left" noWrap>
-              {meeting.meeting_nm}
-            </Typography>
-
-            <Stack direction="row" spacing={0.7} alignItems="center" sx={{ mt: 1 }}>
-              <PlaceOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-              <Typography variant="body2" color="text.secondary" textAlign="left" noWrap>
-                {meeting.center?.center_nm || "-"}
-              </Typography>
-            </Stack>
-
-            <Stack direction="row" spacing={0.7} alignItems="center" sx={{ mt: 0.6 }}>
-              <AccessTimeIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-              <Typography variant="body2" color="text.secondary" textAlign="left">
-                {formatTime(meeting.meeting_dt)}
-              </Typography>
-            </Stack>
-          </Box>
-
-          <Chip
-            label={scores.length > 0 ? "입력완료" : "미입력"}
-            color={scores.length > 0 ? "success" : "default"}
-            size="small"
-            sx={{ fontWeight: 800, flexShrink: 0 }}
-          />
-        </Stack>
-
-        {scores.length > 0 && (
-          <>
-            <Divider sx={{ my: 1.5 }} />
-
-            <Stack direction="row" spacing={1}>
-              <InfoBox label="게임" value={`${scores.length}`} />
-              <InfoBox label="합계" value={total} />
-              <InfoBox label="평균" value={avg} />
-              <InfoBox label="최고" value={high} />
-            </Stack>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              textAlign="left"
-              sx={{ mt: 1.5, whiteSpace: "pre-wrap" }}
-            >
-              {scores.map((item) => `${item.game_no}G ${item.score}`).join(" / ")}
-            </Typography>
-          </>
-        )}
-
-        <Button
-          fullWidth
-          variant="contained"
-          sx={{
-            mt: 2,
-            fontWeight: 900,
-            borderRadius: 2,
-            py: 1,
-          }}
-          onClick={onClick}
+    <Box
+      sx={{
+        px: 2.5,
+        py: 2.5,
+        bgcolor: "#fff",
+        borderBottom: "8px solid #f7f7f8",
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Typography
+          fontWeight={800}
+          noWrap
+          sx={{ flex: 1, minWidth: 0, fontSize: 16, lineHeight: 1.4 }}
         >
-          {scores.length > 0 ? "점수 수정" : "점수 입력"}
-        </Button>
-      </CardContent>
-    </Card>
+          {meeting.meeting_nm}
+        </Typography>
+        <Chip
+          label={scores.length > 0 ? "입력완료" : "미입력"}
+          size="small"
+          sx={{
+            height: 24,
+            flexShrink: 0,
+            bgcolor: scores.length > 0 ? "#2d9146" : "#eeeeef",
+            color: scores.length > 0 ? "#fff" : "#666a70",
+            fontSize: 11,
+            fontWeight: 800,
+            "& .MuiChip-label": { px: 1 },
+          }}
+        />
+      </Stack>
+
+      <Stack spacing={0.3} sx={{ mt: 1.1 }}>
+        <InfoRow label="장 소" value={meeting.center?.center_nm || "-"} />
+        <InfoRow label="시 간" value={formatTime(meeting.meeting_dt)} />
+      </Stack>
+
+      {scores.length > 0 && (
+        <>
+          <Box sx={{ height: "1px", bgcolor: "#e5e7eb", my: 1.5 }} />
+          <Stack direction="row" spacing={0.8}>
+            <StatBox label="게임" value={scores.length} />
+            <StatBox label="합계" value={total} />
+            <StatBox label="평균" value={avg} />
+            <StatBox label="최고" value={high} />
+          </Stack>
+
+          <Typography
+            color="#555a62"
+            sx={{ mt: 1.2, fontSize: 12, lineHeight: 1.45 }}
+          >
+            {scores.map((item) => `${item.game_no}G ${item.score}`).join(" / ")}
+          </Typography>
+        </>
+      )}
+
+      <Button
+        fullWidth
+        variant="contained"
+        onClick={onClick}
+        sx={{
+          mt: 1.5,
+          height: 39,
+          borderRadius: 1.2,
+          bgcolor: BLUE,
+          boxShadow: "none",
+          fontSize: 13,
+          fontWeight: 800,
+          "&:hover": { bgcolor: "#0059dd", boxShadow: "none" },
+        }}
+      >
+        {scores.length > 0 ? "점수 수정" : "점수 입력"}
+      </Button>
+    </Box>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <Stack direction="row" alignItems="center" minHeight={18}>
+      <Typography
+        color="#a0a4ab"
+        sx={{
+          width: 58,
+          flexShrink: 0,
+          whiteSpace: "nowrap",
+          fontSize: 13,
+          lineHeight: 1.4,
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        color="#30333a"
+        fontWeight={500}
+        noWrap
+        sx={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.4 }}
+      >
+        {value}
+      </Typography>
+    </Stack>
+  );
+}
+
+function StatBox({ label, value }) {
+  return (
+    <Box
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        py: 1,
+        bgcolor: "#f5f6fa",
+        borderRadius: 1.5,
+        textAlign: "center",
+      }}
+    >
+      <Typography color="#555a62" sx={{ fontSize: 11, lineHeight: 1.3 }}>
+        {label}
+      </Typography>
+      <Typography color="#16181c" fontWeight={800} sx={{ mt: 0.35, fontSize: 15 }}>
+        {value}
+      </Typography>
+    </Box>
   );
 }
 

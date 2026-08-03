@@ -12,7 +12,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-import { supabase } from "../../services/supabase";
+import { signIn, signOut } from "../../features/auth/api/authApi";
 import { useAuth } from "../../contexts/AuthContext";
 
 function LoginPage() {
@@ -36,25 +36,25 @@ function LoginPage() {
 
     if (profile.status === "PND") {
       setMessage("관리자 승인 대기중입니다.");
-      supabase.auth.signOut();
+      signOut();
       return;
     }
 
     if (profile.status === "REJ") {
       setMessage("가입이 거절된 계정입니다.");
-      supabase.auth.signOut();
+      signOut();
       return;
     }
 
     if (profile.status === "SLP") {
       setMessage("휴면 계정입니다.");
-      supabase.auth.signOut();
+      signOut();
       return;
     }
 
     if (profile.status !== "ACT") {
       setMessage("사용할 수 없는 계정 상태입니다.");
-      supabase.auth.signOut();
+      signOut();
       return;
     }
 
@@ -76,7 +76,7 @@ function LoginPage() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await signIn({
         email: email.trim(),
         password,
       });

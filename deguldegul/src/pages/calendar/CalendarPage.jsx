@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   Alert,
@@ -15,15 +16,30 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AddIcon from "@mui/icons-material/Add";
 
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
+import {
+  cancelOwnedFlashMeeting,
+  closeOwnedFlashMeeting,
+  createFlashMeeting,
+  deleteUserScores,
+  fetchActiveCenters,
+  fetchBattleEntries,
+  fetchBattleMatches,
+  fetchCalendarMeetings,
+  fetchMeetingAttendances,
+  fetchUserAttendances,
+  fetchUserScores,
+  generateBattleMatches,
+  insertScores,
+  saveAttendance,
+} from "../../features/calendar/api/calendarApi";
 
 import EmptyState from "./components/EmptyState";
 import FlashMeetingDialog from "./components/FlashMeetingDialog";
 import Legend from "./components/Legend";
 import MeetingCard from "./components/MeetingCard";
 import ScoreDialog from "./components/ScoreDialog";
-import ScoreMeetingCard from "./components/ScoreMeetingCard";
 import VoteDialog from "./components/VoteDialog";
 import BattleMatchDialog from "./components/BattleMatchDialog";
 import AttendanceListDialog from "./components/AttendanceListDialog";
@@ -44,18 +60,23 @@ const EMPTY_FLASH_FORM = {
   memo: "",
 };
 
+const SCORE_DRAFT_PREFIX = "degul-score-draft";
+const ACTIVE_SCORE_PREFIX = "degul-active-score";
+
 function CalendarPage() {
   const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialDate = getInitialCalendarDate(searchParams.get("date"));
 
-  const [tab, setTab] = useState(1);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(formatDateKey(new Date()));
+  const [tab, setTab] = useState(0);
+  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [selectedDate, setSelectedDate] = useState(formatDateKey(initialDate));
 
   const [meetings, setMeetings] = useState([]);
   const [centers, setCenters] = useState([]);
   const [scores, setScores] = useState([]);
   const [myAttendances, setMyAttendances] = useState([]);
-  const [battleEntries, setBattleEntries] = useState([]);
+  const [, setBattleEntries] = useState([]);
   const [message, setMessage] = useState("");
 
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
@@ -83,28 +104,14 @@ function CalendarPage() {
   const [attendanceMeeting, setAttendanceMeeting] = useState(null);
   const [attendanceList, setAttendanceList] = useState([]);
 
-  const monthTitle = `${currentDate.getFullYear()}년 ${String(
-    currentDate.getMonth() + 1
-  ).padStart(2, "0")}월`;
+  const monthTitle = `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월`;
 
   const selectedMeetings = meetings.filter(
     (meeting) => getDateKeyFromValue(meeting.meeting_dt) === selectedDate
   );
 
-  const scoreTargetMeetings = selectedMeetings.filter((meeting) =>
-    myAttendances.some(
-      (attendance) =>
-        attendance.meeting_id === meeting.meeting_id &&
-        ["ATD", "LAT"].includes(attendance.attendance_tp)
-    )
-  );
-
   const loadCenters = async () => {
-    const { data, error } = await supabase
-      .from("degul_center")
-      .select("center_id, center_nm")
-      .eq("use_yn", "Y")
-      .order("center_nm");
+    const { data, error } = await fetchActiveCenters();
 
     if (error) {
       setMessage(error.message);
@@ -117,44 +124,18 @@ function CalendarPage() {
   const loadMeetings = async () => {
     setMessage("");
 
-    const monthStart = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      1
-    );
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const monthStart = `${year}-${String(month + 1).padStart(2, "0")}-01T00:00`;
+    const nextMonthDate = new Date(year, month + 1, 1);
+    const monthEnd = `${nextMonthDate.getFullYear()}-${String(
+      nextMonthDate.getMonth() + 1
+    ).padStart(2, "0")}-01T00:00`;
 
-    const monthEnd = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() + 1,
-      1
+    const { data, error } = await fetchCalendarMeetings(
+      koreanDateTimeLocalToUtcIso(monthStart),
+      koreanDateTimeLocalToUtcIso(monthEnd)
     );
-
-    const { data, error } = await supabase
-      .from("degul_meeting")
-      .select(`
-        meeting_id,
-        meeting_nm,
-        meeting_tp,
-        meeting_dt,
-        max_member_cnt,
-        memo,
-        status,
-        created_by,
-        center:center_id (
-          center_nm,
-          address,
-          bank_nm,
-          account_no,
-          account_holder,
-          game_cost
-        )
-      `)
-      .eq("use_yn", "Y")
-      .neq("status", "CNL")
-      .gte("meeting_dt", monthStart.toISOString())
-      .lt("meeting_dt", monthEnd.toISOString())
-      .order("meeting_dt", { ascending: true })
-      .order("status", { ascending: false });
 
     if (error) {
       setMessage(error.message || "모임 조회 중 오류가 발생했습니다.");
@@ -174,12 +155,7 @@ function CalendarPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("degul_score")
-      .select("*")
-      .eq("user_id", profile.id)
-      .in("meeting_id", meetingIds)
-      .order("game_no", { ascending: true });
+    const { data, error } = await fetchUserScores(profile.id, meetingIds);
 
     if (error) {
       setMessage(error.message || "점수 조회 중 오류가 발생했습니다.");
@@ -199,11 +175,7 @@ function CalendarPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("degul_attendance")
-      .select("*")
-      .eq("user_id", profile.id)
-      .in("meeting_id", meetingIds);
+    const { data, error } = await fetchUserAttendances(profile.id, meetingIds);
 
     if (error) {
       setMessage(error.message || "내 참석정보 조회 중 오류가 발생했습니다.");
@@ -221,20 +193,7 @@ function CalendarPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("degul_attendance")
-      .select(`
-        meeting_id,
-        user_id,
-        battle_join_yn,
-        user:user_id (
-          id,
-          name,
-          nickname
-        )
-      `)
-      .eq("battle_join_yn", "Y")
-      .in("meeting_id", meetingIds);
+    const { data, error } = await fetchBattleEntries(meetingIds);
 
     if (error) {
       console.error(error);
@@ -287,33 +246,56 @@ function CalendarPage() {
     return marks;
   };
 
-  const openScoreDialog = (meeting) => {
+  const openScoreDialog = useCallback((meeting) => {
     setSelectedMeeting(meeting);
 
     const savedScores = scores
       .filter((score) => score.meeting_id === meeting.meeting_id)
       .sort((a, b) => a.game_no - b.game_no);
+    const draftScores = readScoreDraft(profile?.id, meeting.meeting_id);
 
-    if (savedScores.length > 0) {
-      setScoreInputs(
-        savedScores.map((item) => ({
-          game_no: item.game_no,
-          score: String(item.score),
-        }))
-      );
-    } else {
-      const defaultGameCount = 4;
-
-      setScoreInputs(
-        Array.from({ length: defaultGameCount }, (_, index) => ({
-          game_no: index + 1,
-          score: "",
-        }))
-      );
-    }
+    setScoreInputs(
+      normalizeScoreInputs(meeting, draftScores || savedScores)
+    );
 
     setScoreDialogOpen(true);
+    writeActiveScoreMeeting(profile?.id, meeting);
+  }, [profile?.id, scores]);
+
+  const closeScoreDialog = () => {
+    setScoreDialogOpen(false);
+    clearActiveScoreMeeting(profile?.id);
   };
+
+  useEffect(() => {
+    if (!scoreDialogOpen || !selectedMeeting || !profile?.id) return;
+    writeScoreDraft(profile.id, selectedMeeting.meeting_id, scoreInputs);
+  }, [scoreDialogOpen, scoreInputs, selectedMeeting, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || meetings.length === 0 || scoreDialogOpen) return;
+
+    const activeMeeting = readActiveScoreMeeting(profile.id);
+    if (!activeMeeting) return;
+
+    const meeting = meetings.find(
+      (item) => item.meeting_id === activeMeeting.meetingId
+    );
+
+    queueMicrotask(() => {
+      if (meeting) {
+        setSelectedDate(getDateKeyFromValue(meeting.meeting_dt));
+        openScoreDialog(meeting);
+        return;
+      }
+
+      const meetingDate = new Date(activeMeeting.meetingDate);
+      if (!Number.isNaN(meetingDate.getTime())) {
+        setCurrentDate(meetingDate);
+        setSelectedDate(formatDateKey(meetingDate));
+      }
+    });
+  }, [meetings, profile?.id, scoreDialogOpen, openScoreDialog]);
 
   const openVoteDialog = (meeting) => {
     const saved = myAttendances.find(
@@ -349,11 +331,7 @@ function CalendarPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase
-      .from("degul_attendance")
-      .upsert(payload, {
-        onConflict: "meeting_id,user_id",
-      });
+    const { error } = await saveAttendance(payload);
 
     if (error) {
       alert(error.message);
@@ -380,7 +358,7 @@ function CalendarPage() {
       return;
     }
 
-    const { error } = await supabase.from("degul_meeting").insert({
+    const { error } = await createFlashMeeting({
       meeting_nm: flashForm.meeting_nm.trim(),
       meeting_tp: "FLS",
       center_id: flashForm.center_id,
@@ -417,24 +395,17 @@ function CalendarPage() {
 
     if (!ok) return;
 
-    const { error: updateError } = await supabase
-      .from("degul_meeting")
-      .update({
-        status: "CLS",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("meeting_id", meeting.meeting_id)
-      .eq("created_by", profile.id)
-      .eq("meeting_tp", "FLS");
+    const { error: updateError } = await closeOwnedFlashMeeting(
+      meeting.meeting_id,
+      profile.id
+    );
 
     if (updateError) {
       alert(updateError.message);
       return;
     }
 
-    const { error: battleError } = await supabase.rpc("generate_battle_matches", {
-      p_meeting_id: meeting.meeting_id,
-    });
+    const { error: battleError } = await generateBattleMatches(meeting.meeting_id);
 
     if (battleError) {
       alert(`대진표 생성 실패: ${battleError.message}`);
@@ -462,17 +433,7 @@ function CalendarPage() {
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("degul_meeting")
-      .update({
-        use_yn: "N",
-        status: "CNL",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("meeting_id", meeting.meeting_id)
-      .eq("meeting_tp", "FLS")
-      .eq("created_by", profile.id)
-      .eq("status", "OPN");
+    const { error } = await cancelOwnedFlashMeeting(meeting.meeting_id, profile.id);
 
     if (error) {
       alert(error.message);
@@ -537,11 +498,10 @@ function CalendarPage() {
       return;
     }
 
-    const { error: deleteError } = await supabase
-      .from("degul_score")
-      .delete()
-      .eq("meeting_id", selectedMeeting.meeting_id)
-      .eq("user_id", profile.id);
+    const { error: deleteError } = await deleteUserScores(
+      selectedMeeting.meeting_id,
+      profile.id
+    );
 
     if (deleteError) {
       alert(deleteError.message);
@@ -549,9 +509,7 @@ function CalendarPage() {
     }
 
     if (validScores.length > 0) {
-      const { error: insertError } = await supabase
-        .from("degul_score")
-        .insert(validScores);
+      const { error: insertError } = await insertScores(validScores);
 
       if (insertError) {
         alert(insertError.message);
@@ -559,6 +517,8 @@ function CalendarPage() {
       }
     }
 
+    clearScoreDraft(profile.id, selectedMeeting.meeting_id);
+    clearActiveScoreMeeting(profile.id);
     setScoreDialogOpen(false);
     await loadScores();
   };
@@ -568,50 +528,20 @@ function CalendarPage() {
 
     if (!confirm("해당 모임의 내 점수를 모두 삭제할까요?")) return;
 
-    const { error } = await supabase
-      .from("degul_score")
-      .delete()
-      .eq("meeting_id", selectedMeeting.meeting_id)
-      .eq("user_id", profile.id);
+    const { error } = await deleteUserScores(selectedMeeting.meeting_id, profile.id);
 
     if (error) {
       alert(error.message);
       return;
     }
 
+    clearScoreDraft(profile.id, selectedMeeting.meeting_id);
+    clearActiveScoreMeeting(profile.id);
     setScoreDialogOpen(false);
     await loadScores();
   };
 
   const renderSelectedContent = () => {
-    if (tab === 0) {
-      return (
-        <Stack spacing={2}>
-          <Typography fontWeight={800}>
-            {toKoreanDate(selectedDate)} 스코어
-          </Typography>
-
-          {scoreTargetMeetings.length === 0 ? (
-            <EmptyState text="참석한 모임이 없습니다." />
-          ) : (
-            scoreTargetMeetings.map((meeting) => {
-              const myScores = scores
-                .filter((score) => score.meeting_id === meeting.meeting_id)
-                .sort((a, b) => a.game_no - b.game_no);
-
-              return (
-                <ScoreMeetingCard
-                  key={meeting.meeting_id}
-                  meeting={meeting}
-                  scores={myScores}
-                  onClick={() => openScoreDialog(meeting)}
-                />
-              );
-            })
-          )}
-        </Stack>
-      );
-    }
     const openBattleDialog = async (meeting) => {
       if (meeting.status !== "CLS") {
         alert("모임이 마감된 후 확인 가능합니다.");
@@ -620,30 +550,7 @@ function CalendarPage() {
 
       setBattleMeeting(meeting);
 
-      const { data, error } = await supabase
-        .from("degul_battle_history")
-        .select(`
-          battle_id,
-          meeting_id,
-          game_no,
-          bye_yn,
-          result_status,
-          result_confirm_yn,
-          winner_user_id,
-          loser_user_id,
-          user1:user1_id (
-            id,
-            name,
-            nickname
-          ),
-          user2:user2_id (
-            id,
-            name,
-            nickname
-          )
-        `)
-        .eq("meeting_id", meeting.meeting_id)
-        .order("game_no", { ascending: true });
+      const { data, error } = await fetchBattleMatches(meeting.meeting_id);
 
       if (error) {
         alert(error.message);
@@ -656,24 +563,7 @@ function CalendarPage() {
     const openAttendanceListDialog = async (meeting) => {
       setAttendanceMeeting(meeting);
 
-      const { data, error } = await supabase
-        .from("degul_attendance")
-        .select(`
-          meeting_id,
-          user_id,
-          attendance_tp,
-          battle_join_yn,
-          memo,
-          updated_at,
-          user:user_id (
-            id,
-            name,
-            nickname
-          )
-        `)
-        .eq("meeting_id", meeting.meeting_id)
-        .order("attendance_tp", { ascending: true })
-        .order("updated_at", { ascending: true });
+      const { data, error } = await fetchMeetingAttendances(meeting.meeting_id);
 
       if (error) {
         alert(error.message);
@@ -684,13 +574,13 @@ function CalendarPage() {
       setAttendanceDialogOpen(true);
     };
 
-    if (tab === 2) {
+    if (tab === 1) {
       return <EmptyState text="이벤트 기능은 추후 구현 예정입니다." />;
     }
 
     return (
-      <Stack spacing={2}>
-        <Typography fontWeight={800}>
+      <Stack spacing={0}>
+        <Typography fontWeight={800} sx={{ display: "none" }}>
           {toKoreanDate(selectedDate)} 모임 일정
         </Typography>
 
@@ -701,13 +591,18 @@ function CalendarPage() {
             const myAttendance = myAttendances.find(
               (attendance) => attendance.meeting_id === meeting.meeting_id
             );
+            const myScores = scores
+              .filter((score) => score.meeting_id === meeting.meeting_id)
+              .sort((a, b) => a.game_no - b.game_no);
 
             return (
               <MeetingCard
                 key={meeting.meeting_id}
                 meeting={meeting}
                 attendance={myAttendance}
+                scores={myScores}
                 profile={profile}
+                onScoreClick={() => openScoreDialog(meeting)}
                 onVoteClick={() => openVoteDialog(meeting)}
                 onBattleClick={() => openBattleDialog(meeting)}
                 onCloseFlashClick={() => closeFlashMeeting(meeting)}
@@ -722,57 +617,105 @@ function CalendarPage() {
   };
 
   return (
-    <Box sx={{ p: 2, position: "relative", minHeight: "calc(100vh - 80px)" }}>
-      <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ mb: 2 }}>
+    <Box
+      sx={{
+        position: "relative",
+        minHeight: "calc(100vh - 72px)",
+        bgcolor: "#f7f7f8",
+        color: "#17191d",
+        textAlign: "left",
+        "& .MuiTypography-root, & .MuiButton-root, & .MuiTab-root": {
+          fontFamily: 'Pretendard, "Noto Sans KR", "Segoe UI", sans-serif',
+          letterSpacing: "-0.025em",
+        },
+      }}
+    >
+      <Typography variant="h6" fontWeight={800} textAlign="center" sx={{ display: "none" }}>
         캘린더
       </Typography>
 
-      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, bgcolor: "background.default", mx: -2, px: 2}}>
+      <Box sx={{ position: "sticky", top: 0, zIndex: 1100, bgcolor: "#fff", px: 2 }}>
         <Tabs
           value={tab}
           onChange={(e, value) => setTab(value)}
           variant="fullWidth"
-          sx={{ mb: 2, "& .MuiTab-root": { fontWeight: 700 } }}
+          sx={{
+            minHeight: 58,
+            borderBottom: "1px solid #f0f1f3",
+            "& .MuiTab-root": {
+              minHeight: 58,
+              py: 0,
+              color: "#a5a8ae",
+              fontSize: 14,
+              fontWeight: 500,
+            },
+            "& .Mui-selected": { color: "#0868f7 !important", fontWeight: 800 },
+            "& .MuiTabs-indicator": { height: 2, bgcolor: "#0868f7" },
+          }}
         >
-          <Tab label="스코어" />
           <Tab label="모임" />
           <Tab label="이벤트" />
         </Tabs>
       </Box>  
       {message && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ m: 2 }}>
           {message}
         </Alert>
       )}
 
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-        <IconButton onClick={() => moveMonth(-1)}>
-          <ChevronLeftIcon />
+      <Box sx={{ bgcolor: "#fff", px: 2.5, pt: 1.8, pb: 2.5 }}>
+      <Box
+        sx={{
+          position: "relative",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+          minHeight: 32,
+          mb: 1,
+        }}
+      >
+        <IconButton size="small" onClick={() => moveMonth(-1)} sx={{ width: 32, height: 32 }}>
+          <ChevronLeftIcon sx={{ fontSize: 18 }} />
         </IconButton>
 
-        <Typography fontWeight={800} fontSize={20}>
+        <Typography
+          fontWeight={800}
+          sx={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "max-content",
+            fontSize: 16,
+            lineHeight: 1.2,
+            textAlign: "center",
+          }}
+        >
           {monthTitle}
         </Typography>
 
-        <IconButton onClick={() => moveMonth(1)}>
-          <ChevronRightIcon />
+        <IconButton
+          size="small"
+          onClick={() => moveMonth(1)}
+          sx={{ width: 32, height: 32 }}
+        >
+          <ChevronRightIcon sx={{ fontSize: 18 }} />
         </IconButton>
-      </Stack>
+      </Box>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", mb: 1 }}>
-        {WEEK_LABELS.map((label, index) => (
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", mb: 0.5 }}>
+        {WEEK_LABELS.map((label) => (
           <Typography
             key={label}
-            textAlign="center"
-            fontWeight={800}
-            color={
-              index === 0
-                ? "error.main"
-                : index === 6
-                ? "primary.main"
-                : "text.primary"
-            }
-            sx={{ py: 1 }}
+            fontWeight={500}
+            color="#858991"
+            sx={{
+              py: 0.9,
+              width: "100%",
+              fontSize: 13,
+              lineHeight: 1.2,
+              textAlign: "center",
+            }}
           >
             {label}
           </Typography>
@@ -783,13 +726,14 @@ function CalendarPage() {
         sx={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          rowGap: 1.1,
-          mb: 2.5,
+          rowGap: 0.35,
+          mb: 0,
         }}
       >
         {calendarDays.map((item) => {
           const dateKey = formatDateKey(item.date);
           const isSelected = selectedDate === dateKey;
+          const isToday = formatDateKey(new Date()) === dateKey;
           const marks = getDayMarks(dateKey);
           const dayOfWeek = item.date.getDay();
 
@@ -808,24 +752,26 @@ function CalendarPage() {
             >
               <Box
                 sx={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 2,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: isSelected ? "primary.main" : "transparent",
+                  bgcolor: isSelected ? "#0868f7" : "transparent",
+                  border: isToday && !isSelected ? "2px solid #0868f7" : "2px solid transparent",
+                  boxSizing: "border-box",
                   color: isSelected
                     ? "#fff"
                     : !item.currentMonth
                     ? "text.disabled"
                     : dayOfWeek === 0
-                    ? "error.main"
+                    ? "#25282d"
                     : dayOfWeek === 6
-                    ? "primary.main"
-                    : "text.primary",
-                  fontWeight: isSelected ? 800 : 600,
-                  fontSize: 18,
+                    ? "#25282d"
+                    : "#25282d",
+                  fontWeight: isSelected || isToday ? 800 : 500,
+                  fontSize: 15,
                 }}
               >
                 {item.day}
@@ -836,7 +782,7 @@ function CalendarPage() {
                 spacing={0.3}
                 sx={{
                   position: "absolute",
-                  bottom: 0,
+                  bottom: isSelected || isToday ? 4 : 0,
                   left: "50%",
                   transform: "translateX(-50%)",
                 }}
@@ -845,10 +791,10 @@ function CalendarPage() {
                   <Box
                     key={mark}
                     sx={{
-                      width: 5,
-                      height: 5,
+                      width: 6,
+                      height: 6,
                       borderRadius: "50%",
-                      bgcolor: mark === "score" ? "#43a047" : "#1976d2",
+                      bgcolor: mark === "score" ? "#42d6b3" : "#804bff",
                     }}
                   />
                 ))}
@@ -858,21 +804,23 @@ function CalendarPage() {
         })}
       </Box>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 2, px: 0.5 }}>
+      </Box>
+
+      <Stack direction="row" spacing={2} sx={{ display: "none" }}>
         <Legend color="#1976d2" label="모임" />
         <Legend color="#43a047" label="점수입력" />
       </Stack>
 
-      {renderSelectedContent()}
+      <Box sx={{ mt: 1, bgcolor: "#fff" }}>{renderSelectedContent()}</Box>
 
-      {tab === 1 && (
+      {tab === 0 && (
         <Fab
           color="primary"
           onClick={openFlashDialog}
           sx={{
             position: "fixed",
             bottom: "calc(88px + env(safe-area-inset-bottom))",
-            right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
+            right: "max(20px, calc((100vw - 375px) / 2 + 20px))",
             zIndex: 1200,
           }}
         >
@@ -884,7 +832,7 @@ function CalendarPage() {
         open={scoreDialogOpen}
         meeting={selectedMeeting}
         scoreInputs={scoreInputs}
-        onClose={() => setScoreDialogOpen(false)}
+        onClose={closeScoreDialog}
         onAddGame={addGame}
         onRemoveGame={removeGame}
         onUpdateScore={updateScoreInput}
@@ -925,18 +873,116 @@ function CalendarPage() {
   );
 }
 
-function koreanDateTimeLocalToUtcIso(value) {
-  if (!value) return null;
+function normalizeScoreInputs(meeting, sourceScores) {
+  const normalized = (sourceScores || [])
+    .map((item, index) => ({
+      game_no: Number(item.game_no) || index + 1,
+      score:
+        item.score === "" || item.score === null || item.score === undefined
+          ? ""
+          : String(item.score),
+    }))
+    .sort((a, b) => a.game_no - b.game_no);
 
-  // value 예: "2026-07-29T21:00"
-  const [datePart, timePart] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
+  if (meeting.meeting_tp === "REG") {
+    return Array.from({ length: 4 }, (_, index) => {
+      const gameNo = index + 1;
+      const savedGame = normalized.find((item) => item.game_no === gameNo);
+      return {
+        game_no: gameNo,
+        score: savedGame?.score || "",
+      };
+    });
+  }
 
-  // 한국시간 UTC+9 이므로 UTC로 저장하려면 9시간 빼기
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 9, minute, 0));
+  if (normalized.length > 0) return normalized;
 
-  return utcDate.toISOString();
+  return Array.from({ length: 4 }, (_, index) => ({
+    game_no: index + 1,
+    score: "",
+  }));
+}
+
+function getScoreDraftKey(userId, meetingId) {
+  return `${SCORE_DRAFT_PREFIX}:${userId}:${meetingId}`;
+}
+
+function getActiveScoreKey(userId) {
+  return `${ACTIVE_SCORE_PREFIX}:${userId}`;
+}
+
+function readScoreDraft(userId, meetingId) {
+  if (!userId || !meetingId) return null;
+
+  try {
+    const value = JSON.parse(localStorage.getItem(getScoreDraftKey(userId, meetingId)));
+    return Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeScoreDraft(userId, meetingId, scoreInputs) {
+  try {
+    localStorage.setItem(
+      getScoreDraftKey(userId, meetingId),
+      JSON.stringify(scoreInputs)
+    );
+  } catch {
+    // 저장 공간을 사용할 수 없는 환경에서는 현재 화면의 React 상태를 유지합니다.
+  }
+}
+
+function clearScoreDraft(userId, meetingId) {
+  try {
+    localStorage.removeItem(getScoreDraftKey(userId, meetingId));
+  } catch {
+    // 저장 공간을 사용할 수 없는 환경에서는 무시합니다.
+  }
+}
+
+function writeActiveScoreMeeting(userId, meeting) {
+  if (!userId || !meeting) return;
+
+  try {
+    localStorage.setItem(
+      getActiveScoreKey(userId),
+      JSON.stringify({
+        meetingId: meeting.meeting_id,
+        meetingDate: meeting.meeting_dt,
+      })
+    );
+  } catch {
+    // 저장 공간을 사용할 수 없는 환경에서는 현재 화면의 React 상태를 유지합니다.
+  }
+}
+
+function readActiveScoreMeeting(userId) {
+  if (!userId) return null;
+
+  try {
+    const value = JSON.parse(localStorage.getItem(getActiveScoreKey(userId)));
+    return value?.meetingId ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearActiveScoreMeeting(userId) {
+  if (!userId) return;
+
+  try {
+    localStorage.removeItem(getActiveScoreKey(userId));
+  } catch {
+    // 저장 공간을 사용할 수 없는 환경에서는 무시합니다.
+  }
+}
+
+function getInitialCalendarDate(dateParam) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam || "")) return new Date();
+
+  const date = new Date(`${dateParam}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 export default CalendarPage;

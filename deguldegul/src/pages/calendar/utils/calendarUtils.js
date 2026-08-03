@@ -1,3 +1,8 @@
+import {
+  formatDateKey as formatKoreanDateKey,
+  formatTime as formatKoreanTime,
+} from "../../../shared/utils/date";
+
 export const WEEK_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 export function formatDateKey(date) {
@@ -8,7 +13,7 @@ export function formatDateKey(date) {
 }
 
 export function getDateKeyFromValue(value) {
-  return formatDateKey(new Date(value));
+  return formatKoreanDateKey(value);
 }
 
 export function getCalendarDays(currentDate) {
@@ -67,41 +72,5 @@ export function toKoreanDate(dateText) {
 }
 
 export function formatTime(value) {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export function getMeetingTypeLabel(value) {
-  const map = {
-    REG: "정기전",
-    FLS: "번개",
-    EVT: "이벤트",
-  };
-
-  return map[value] || value;
-}
-
-export function getStatusLabel(value) {
-  const map = {
-    OPN: "모집중",
-    CLS: "마감",
-    CNL: "취소",
-  };
-
-  return map[value] || value;
-}
-
-export function getAttendanceLabel(value) {
-  const map = {
-    ATD: "참석",
-    LAT: "늦참",
-    PND: "보류",
-    ABS: "불참",
-  };
-
-  return map[value] || "미투표";
+  return formatKoreanTime(value);
 }

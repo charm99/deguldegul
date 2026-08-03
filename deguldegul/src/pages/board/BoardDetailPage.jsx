@@ -20,6 +20,10 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  canManageNotice,
+  canManageOwnedContent,
+} from "../../shared/model/permissions";
+import {
   createComment,
   deleteBoard,
   deleteComment,
@@ -39,25 +43,11 @@ function BoardDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [message, setMessage] = useState("");
 
-  const isAdmin = ["ADM", "MGR"].includes(profile?.role);
-  const isWriter = board?.writer_id === profile?.id;
-  const canEdit = isAdmin || isWriter;
+  const isAdmin = canManageNotice(profile);
+  const canEdit = canManageOwnedContent(profile, board?.writer_id);
 
   const [imageOpen, setImageOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
-
-  const loadBoard = async () => {
-    setMessage("");
-
-    const { data, error } = await getBoardDetail(boardId);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setBoard(data);
-  };
 
   const loadComments = async () => {
     const { data, error } = await getComments(boardId);
@@ -116,26 +106,65 @@ function BoardDetailPage() {
 
   useEffect(() => {
     increaseViewCount(boardId);
-    loadBoard();
-    loadComments();
+    let active = true;
+
+    Promise.all([getBoardDetail(boardId), getComments(boardId)]).then(
+      ([boardResult, commentResult]) => {
+        if (!active) return;
+
+        const error = boardResult.error || commentResult.error;
+        if (error) {
+          setMessage(error.message);
+          return;
+        }
+
+        setMessage("");
+        setBoard(boardResult.data);
+        setComments(commentResult.data || []);
+      }
+    );
+
+    return () => {
+      active = false;
+    };
   }, [boardId]);
 
   if (!board && !message) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Typography color="text.secondary">불러오는 중...</Typography>
+      <Box sx={{ minHeight: "100vh", bgcolor: "#f7f7f8", p: 3 }}>
+        <Typography color="#858991" textAlign="center">불러오는 중...</Typography>
       </Box>
     );
   }
 
   return (
-  <Box sx={{ p: 2 }}>
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-      <IconButton onClick={() => navigate(-1)}>
+  <Box
+    sx={{
+      minHeight: "calc(100vh - 72px)",
+      bgcolor: "#f7f7f8",
+      pb: 10,
+      fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+    }}
+  >
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={0.5}
+      sx={{
+        position: "sticky",
+        top: 0,
+        zIndex: 5,
+        minHeight: 58,
+        px: 1,
+        bgcolor: "#fff",
+        borderBottom: "1px solid #eceef2",
+      }}
+    >
+      <IconButton onClick={() => navigate(-1)} size="small">
         <ArrowBackIcon />
       </IconButton>
 
-      <Typography variant="h6" fontWeight={800} sx={{ flex: 1 }}>
+      <Typography sx={{ flex: 1, fontSize: 16, fontWeight: 900 }}>
         게시글
       </Typography>
 
@@ -155,26 +184,23 @@ function BoardDetailPage() {
       )}
     </Stack>
 
-    {message && (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        {message}
-      </Alert>
-    )}
+    <Box sx={{ p: 2 }}>
+    {message && <Alert severity="error" sx={{ mb: 1.25 }}>{message}</Alert>}
 
     {board && (
       <>
-        <Card sx={{ borderRadius: 3, mb: 2, textAlign: "left" }}>
-          <CardContent>
-            <Typography variant="h6" fontWeight={800} textAlign="left">
+        <Card sx={{ ...cardSx, mb: 1.25, textAlign: "left" }}>
+          <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+            <Typography sx={{ color: "#25282d", fontSize: 17, lineHeight: 1.45, fontWeight: 900 }}>
               {board.title}
             </Typography>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography color="#858991" sx={{ mt: 0.65, fontSize: 11.5 }}>
               {board.writer?.nickname || board.writer?.name || "-"} ·{" "}
               {formatDateTime(board.created_at)} · 조회 {board.view_cnt}
             </Typography>
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 1.5, borderColor: "#eceef2" }} />
 
             <Box sx={{ textAlign: "left" }}>{renderContent(board.content)}</Box>
 
@@ -196,7 +222,7 @@ function BoardDetailPage() {
                       sx={{
                         width: "100%",
                         maxHeight: 340,
-                        borderRadius: 2,
+                        borderRadius: 1.5,
                         objectFit: "cover",
                         cursor: "pointer",
                       }}
@@ -208,26 +234,31 @@ function BoardDetailPage() {
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 3, textAlign: "left" }}>
-          <CardContent>
-            <Typography fontWeight={800} sx={{ mb: 1 }}>
+        <Card sx={{ ...cardSx, textAlign: "left" }}>
+          <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+            <Typography sx={{ mb: 1.25, fontSize: 14, fontWeight: 900 }}>
               댓글 {comments.length}
             </Typography>
 
-            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={0.75} sx={{ mb: 2 }}>
               <TextField
                 size="small"
                 placeholder="댓글을 입력하세요"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 fullWidth
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5, fontSize: 13 } }}
               />
-              <Button variant="contained" onClick={handleAddComment}>
+              <Button
+                variant="contained"
+                onClick={handleAddComment}
+                sx={{ minWidth: 58, borderRadius: 1.5, bgcolor: "#0868f7", fontWeight: 800 }}
+              >
                 등록
               </Button>
             </Stack>
 
-            <Stack spacing={1.5}>
+            <Stack spacing={1.25}>
               {comments.map((comment) => {
                 const canDeleteComment =
                   isAdmin || comment.writer_id === profile?.id;
@@ -235,7 +266,7 @@ function BoardDetailPage() {
                 return (
                   <Box key={comment.comment_id}>
                     <Stack direction="row" justifyContent="space-between">
-                      <Typography fontWeight={800} variant="body2">
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 900 }}>
                         {comment.writer?.nickname || comment.writer?.name || "-"}
                       </Typography>
 
@@ -251,17 +282,16 @@ function BoardDetailPage() {
                     </Stack>
 
                     <Typography
-                      variant="body2"
-                      sx={{ whiteSpace: "pre-wrap", textAlign: "left" }}
+                      sx={{ mt: 0.35, whiteSpace: "pre-wrap", textAlign: "left", fontSize: 13, lineHeight: 1.55 }}
                     >
                       {comment.content}
                     </Typography>
 
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography color="#999da5" sx={{ fontSize: 10.5 }}>
                       {formatDateTime(comment.created_at)}
                     </Typography>
 
-                    <Divider sx={{ mt: 1 }} />
+                    <Divider sx={{ mt: 1, borderColor: "#eceef2" }} />
                   </Box>
                 );
               })}
@@ -297,6 +327,7 @@ function BoardDetailPage() {
         </Dialog>
       </>
     )}
+    </Box>
   </Box>
 );
 }
@@ -311,7 +342,9 @@ function renderContent(text) {
       sx={{
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
-        lineHeight: 1.8,
+        color: "#34373c",
+        fontSize: 14,
+        lineHeight: 1.75,
         mb: 0.5,
       }}
     >
@@ -356,5 +389,11 @@ function formatDateTime(value) {
     minute: "2-digit",
   });
 }
+
+const cardSx = {
+  borderRadius: 2,
+  border: "1px solid #eceef2",
+  boxShadow: "none",
+};
 
 export default BoardDetailPage;

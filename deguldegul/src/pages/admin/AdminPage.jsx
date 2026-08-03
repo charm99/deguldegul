@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
   Stack,
   List,
   ListItemButton,
@@ -60,6 +59,17 @@ function AdminPage() {
               <ListItemText
                 primary="배틀로얄 관리"
                 secondary="배틀로얄 정산, 포인트이력 관리"
+              />
+            </ListItemButton>
+          </List>
+        </Card>
+
+        <Card sx={{ borderRadius: 3 }}>
+          <List>
+            <ListItemButton onClick={() => navigate("/admin/capsule")}>
+              <ListItemText
+                primary="캡슐 이벤트 관리"
+                secondary="회차 현황, 캡슐 생성 및 이벤트 시작"
               />
             </ListItemButton>
           </List>
