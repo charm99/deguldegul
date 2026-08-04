@@ -27,6 +27,7 @@ function MeetingCard({
 }) {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const { getCodeName } = useCommonCodes();
 
   const isFlashOwner =
@@ -39,7 +40,6 @@ function MeetingCard({
   const accountText = [
     meeting.center?.bank_nm,
     meeting.center?.account_no,
-    meeting.center?.account_holder,
   ]
     .filter(Boolean)
     .join(" ");
@@ -138,7 +138,7 @@ function MeetingCard({
               accountText ? (
                 <Button
                   size="small"
-                  onClick={copyAccount}
+                  onClick={() => setShowAccount((previous) => !previous)}
                   sx={{
                     minWidth: 44,
                     p: 0,
@@ -147,42 +147,69 @@ function MeetingCard({
                     lineHeight: 1.4,
                   }}
                 >
-                  계좌복사
+                  {showAccount ? "숨기기" : "계좌보기"}
                 </Button>
               ) : null
             }
-            trailing={
-              <Stack direction="row" spacing={0.5}>
-                <Chip
-                  label={getCodeName(COMMON_CODE_GROUP.MEETING_TYPE, meeting.meeting_tp)}
-                  size="small"
-                  sx={chipSx("#eaf3ff", BLUE)}
-                />
-                <Chip
-                  label={getCodeName(COMMON_CODE_GROUP.MEETING_STATUS, meeting.status)}
-                  size="small"
-                  sx={chipSx(meeting.status === "OPN" ? "#f1edff" : "#eeeeef", meeting.status === "OPN" ? "#7657dc" : "#666a70")}
-                />
-                {attendance && (
-                  <Chip
-                    label={getCodeName(
-                      COMMON_CODE_GROUP.ATTENDANCE_STATUS,
-                      attendance.attendance_tp
-                    )}
-                    size="small"
-                    sx={attendanceChipSx(attendance.attendance_tp)}
-                  />
-                )}
-                {attendance?.battle_join_yn === "Y" && (
-                  <Chip
-                    label="배틀참가"
-                    size="small"
-                    sx={chipSx("#fff1df", "#dc7900")}
-                  />
-                )}
-              </Stack>
-            }
           />
+          {showAccount && (
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={0.8}
+              sx={{ pl: "58px", py: 0.35 }}
+            >
+              <Typography
+                color="#30333a"
+                fontWeight={500}
+                sx={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.45 }}
+              >
+                {accountText}
+              </Typography>
+              <Button
+                size="small"
+                onClick={copyAccount}
+                sx={{
+                  minWidth: 48,
+                  p: 0,
+                  color: "#777c84",
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                }}
+              >
+                계좌복사
+              </Button>
+            </Stack>
+          )}
+          <Stack direction="row" spacing={0.5} sx={{ pt: 0.2 }}>
+            <Chip
+              label={getCodeName(COMMON_CODE_GROUP.MEETING_TYPE, meeting.meeting_tp)}
+              size="small"
+              sx={chipSx("#eaf3ff", BLUE)}
+            />
+            <Chip
+              label={getCodeName(COMMON_CODE_GROUP.MEETING_STATUS, meeting.status)}
+              size="small"
+              sx={chipSx(meeting.status === "OPN" ? "#f1edff" : "#eeeeef", meeting.status === "OPN" ? "#7657dc" : "#666a70")}
+            />
+            {attendance && (
+              <Chip
+                label={getCodeName(
+                  COMMON_CODE_GROUP.ATTENDANCE_STATUS,
+                  attendance.attendance_tp
+                )}
+                size="small"
+                sx={attendanceChipSx(attendance.attendance_tp)}
+              />
+            )}
+            {attendance?.battle_join_yn === "Y" && (
+              <Chip
+                label="배틀참가"
+                size="small"
+                sx={chipSx("#fff1df", "#dc7900")}
+              />
+            )}
+          </Stack>
         </Stack>
 
         <Button
