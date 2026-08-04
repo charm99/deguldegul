@@ -9,9 +9,12 @@ import {
   ListItemButton,
   ListItemText,
 } from "@mui/material";
+import { useAuth } from "../../contexts/AuthContext";
+import { canManageBattle } from "../../shared/model/permissions";
 
 function AdminPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   return (
     <Box sx={{ p: 2 }}>
@@ -53,16 +56,18 @@ function AdminPage() {
           </List>
         </Card>
 
-        <Card sx={{ borderRadius: 3 }}>
-          <List>
-            <ListItemButton onClick={() => navigate("/admin/battle")}>
-              <ListItemText
-                primary="배틀로얄 관리"
-                secondary="배틀로얄 정산, 포인트이력 관리"
-              />
-            </ListItemButton>
-          </List>
-        </Card>
+        {canManageBattle(profile) && (
+          <Card sx={{ borderRadius: 3 }}>
+            <List>
+              <ListItemButton onClick={() => navigate("/admin/battle")}>
+                <ListItemText
+                  primary="배틀로얄 관리"
+                  secondary="배틀로얄 정산, 포인트이력 관리"
+                />
+              </ListItemButton>
+            </List>
+          </Card>
+        )}
 
         <Card sx={{ borderRadius: 3 }}>
           <List>

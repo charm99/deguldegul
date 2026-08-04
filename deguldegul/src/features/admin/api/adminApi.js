@@ -19,6 +19,21 @@ export function fetchBattlePointHistory() {
     .order("created_at", { ascending: false });
 }
 
+export function fetchMonthlyBattleAttendances(startDate, endDate) {
+  return supabase
+    .from("degul_attendance")
+    .select(`
+      meeting_id, user_id,
+      user:user_id (name, nickname),
+      meeting:meeting_id!inner (meeting_dt, status)
+    `)
+    .eq("battle_join_yn", "Y")
+    .in("attendance_tp", ["ATD", "LAT"])
+    .eq("meeting.status", "CLS")
+    .gte("meeting.meeting_dt", startDate)
+    .lt("meeting.meeting_dt", endDate);
+}
+
 export function refreshBattleResults() {
   return supabase.rpc("refresh_battle_results");
 }

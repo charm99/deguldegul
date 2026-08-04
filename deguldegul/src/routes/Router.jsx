@@ -69,12 +69,12 @@ function Router() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/centers" element={<CenterManagePage />} />
               <Route path="/admin/meetings" element={<MeetingManagePage />} />
-              <Route path="/admin/battle" element={<BattleManagePage />} />
               <Route path="/admin/capsule" element={<CapsuleManagePage />} />
             </Route>
 
             <Route element={<RoleRoute roles={USER_MANAGER_ROLES} />}>
               <Route path="/admin/users" element={<UserManagePage />} />
+              <Route path="/admin/battle" element={<BattleManagePage />} />
             </Route>
           </Route>
         </Route>

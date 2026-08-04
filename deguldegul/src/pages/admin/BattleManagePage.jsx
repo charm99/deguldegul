@@ -11,6 +11,9 @@ import {
   CardContent,
   Alert,
   Chip,
+  Tab,
+  Tabs,
+  TextField,
 } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -18,6 +21,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 
 import {
   fetchBattlePointHistory,
+  fetchMonthlyBattleAttendances,
   refreshBattleResults,
 } from "../../features/admin/api/adminApi";
 import { useCommonCodes } from "../../contexts/useCommonCodes";
@@ -30,6 +34,10 @@ function BattleManagePage() {
     getCodeName(COMMON_CODE_GROUP.POINT_TYPE, value);
 
   const [histories, setHistories] = useState([]);
+  const [tab, setTab] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentKoreanMonth());
+  const [monthlyAttendances, setMonthlyAttendances] = useState([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   const loadHistories = async () => {
@@ -64,6 +72,23 @@ function BattleManagePage() {
     await loadHistories();
   };
 
+  const loadMonthlyAttendances = async (month = selectedMonth) => {
+    setMessage("");
+    setMonthlyLoading(true);
+
+    const { startDate, endDate } = getKoreanMonthRange(month);
+    const { data, error } = await fetchMonthlyBattleAttendances(startDate, endDate);
+
+    if (error) {
+      setMessage(error.message);
+      setMonthlyAttendances([]);
+    } else {
+      setMonthlyAttendances(summarizeMonthlyAttendances(data || []));
+    }
+
+    setMonthlyLoading(false);
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -89,15 +114,30 @@ function BattleManagePage() {
           배틀로얄관리
         </Typography>
 
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={handleRefresh}
-        >
-          결과 최신화
-        </Button>
+        {tab === 0 && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+          >
+            결과 최신화
+          </Button>
+        )}
       </Stack>
+
+      <Tabs
+        value={tab}
+        onChange={(_, value) => {
+          setTab(value);
+          if (value === 1) loadMonthlyAttendances();
+        }}
+        variant="fullWidth"
+        sx={{ mb: 2, borderBottom: "1px solid #e5e7eb" }}
+      >
+        <Tab label="포인트 이력" />
+        <Tab label="월별 참석" />
+      </Tabs>
 
       {message && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -105,7 +145,7 @@ function BattleManagePage() {
         </Alert>
       )}
 
-      <Card sx={{ borderRadius: 3 }}>
+      {tab === 0 && <Card sx={{ borderRadius: 3 }}>
         <CardContent>
           <Typography fontWeight={800} sx={{ mb: 1.5 }}>
             포인트 이력
@@ -170,9 +210,137 @@ function BattleManagePage() {
             </Box>
           </Box>
         </CardContent>
-      </Card>
+      </Card>}
+
+      {tab === 1 && (
+        <Card sx={{ borderRadius: 3 }}>
+          <CardContent>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={2}
+              sx={{ mb: 2 }}
+            >
+              <Box>
+                <Typography fontWeight={800}>월별 배틀로얄 참석</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  배틀로얄 참가로 체크된 모임 수를 집계합니다.
+                </Typography>
+              </Box>
+              <TextField
+                type="month"
+                size="small"
+                value={selectedMonth}
+                onChange={(event) => {
+                  const month = event.target.value;
+                  setSelectedMonth(month);
+                  if (month) loadMonthlyAttendances(month);
+                }}
+                sx={{ width: 150, flexShrink: 0 }}
+                slotProps={{ htmlInput: { max: getCurrentKoreanMonth() } }}
+              />
+            </Stack>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "64px 1fr 100px",
+                bgcolor: "#f5f6fa",
+                borderRadius: 2,
+                py: 1,
+              }}
+            >
+              {["순위", "회원", "참석 횟수"].map((column) => (
+                <Typography
+                  key={column}
+                  variant="caption"
+                  color="text.secondary"
+                  textAlign="center"
+                  fontWeight={800}
+                >
+                  {column}
+                </Typography>
+              ))}
+            </Box>
+
+            {monthlyAttendances.map((item, index) => (
+              <Box
+                key={item.userId}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "64px 1fr 100px",
+                  py: 1.4,
+                  borderBottom: "1px solid #eee",
+                  alignItems: "center",
+                }}
+              >
+                <Cell>{index + 1}</Cell>
+                <Cell bold>{item.nickname || item.name || "-"}</Cell>
+                <Cell bold>{item.count}회</Cell>
+              </Box>
+            ))}
+
+            {!monthlyLoading && monthlyAttendances.length === 0 && (
+              <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
+                해당 월의 배틀로얄 참석 기록이 없습니다.
+              </Typography>
+            )}
+
+            {monthlyLoading && (
+              <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
+                참석 기록을 불러오는 중입니다.
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </Box>
   );
+}
+
+function summarizeMonthlyAttendances(attendances) {
+  const users = new Map();
+
+  attendances.forEach((attendance) => {
+    const current = users.get(attendance.user_id) || {
+      userId: attendance.user_id,
+      name: attendance.user?.name,
+      nickname: attendance.user?.nickname,
+      meetingIds: new Set(),
+    };
+
+    current.meetingIds.add(attendance.meeting_id);
+    users.set(attendance.user_id, current);
+  });
+
+  return [...users.values()]
+    .map(({ meetingIds, ...user }) => ({ ...user, count: meetingIds.size }))
+    .sort((a, b) => b.count - a.count || (a.nickname || a.name || "").localeCompare(
+      b.nickname || b.name || "",
+      "ko"
+    ));
+}
+
+function getCurrentKoreanMonth() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+}
+
+function getKoreanMonthRange(month) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const nextYear = monthNumber === 12 ? year + 1 : year;
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
+  const startDate = new Date(`${year}-${String(monthNumber).padStart(2, "0")}-01T00:00:00+09:00`);
+  const endDate = new Date(`${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00:00+09:00`);
+
+  return {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+  };
 }
 
 function Cell({ children, bold = false }) {

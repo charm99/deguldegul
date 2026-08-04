@@ -43,6 +43,12 @@ function MeetingCard({
   ]
     .filter(Boolean)
     .join(" ");
+  const accountDisplayText = [
+    accountText,
+    meeting.center?.account_holder,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const copyAccount = async () => {
     if (!accountText) return;
@@ -164,7 +170,7 @@ function MeetingCard({
                 fontWeight={500}
                 sx={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.45 }}
               >
-                {accountText}
+                {accountDisplayText}
               </Typography>
               <Button
                 size="small"

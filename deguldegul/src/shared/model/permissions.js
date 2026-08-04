@@ -12,6 +12,10 @@ export function canManageUsers(profile) {
   return hasRole(profile, USER_MANAGER_ROLES);
 }
 
+export function canManageBattle(profile) {
+  return hasRole(profile, USER_MANAGER_ROLES);
+}
+
 export function canSeePrivateUserInfo(profile) {
   return profile?.role === ROLE.ADMIN;
 }
