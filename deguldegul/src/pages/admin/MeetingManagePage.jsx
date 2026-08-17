@@ -27,8 +27,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   createMeeting,
+  closeMeetingAttendance,
+  completeMeeting,
   fetchMeetingAdminData,
-  generateBattleMatches,
+  finalizeBattleMatches,
+  reopenMeetingAttendance,
   updateMeetingStatus as updateMeetingStatusRequest,
 } from "../../features/admin/api/meetingAdminApi";
 import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
@@ -110,27 +113,37 @@ function MeetingManagePage() {
     await loadData();
   };
 
-  const closeMeeting = async (meetingId) => {
-    const ok = confirm(
-      "모임을 마감하고 배틀로얄 대진표를 생성할까요?\n기존 대진표가 있으면 다시 생성됩니다."
-    );
+  const closeAttendance = async (meetingId) => {
+    const ok = confirm("예약 인원 확정을 위해 참석자를 마감할까요?\n마감 후에도 배틀 참가 여부는 변경할 수 있습니다.");
 
     if (!ok) return;
 
-    const { error: updateError } = await updateMeetingStatusRequest(meetingId, "CLS");
-
-    if (updateError) {
-      alert(updateError.message);
+    const { error } = await closeMeetingAttendance(meetingId);
+    if (error) {
+      alert(error.message);
       return;
     }
+    await loadData();
+  };
 
-    const { error: battleError } = await generateBattleMatches(meetingId);
+  const generateBattle = async (meetingId) => {
+    if (!confirm("현재 배틀 참가자로 대진표를 확정할까요?\n생성 후에는 배틀 참가 여부를 변경할 수 없습니다.")) return;
 
-    if (battleError) {
-      alert(`대진표 생성 실패: ${battleError.message}`);
+    const { error } = await finalizeBattleMatches(meetingId);
+    if (error) {
+      alert(`대진표 생성 실패: ${error.message}`);
       return;
     }
+    await loadData();
+  };
 
+  const finishMeeting = async (meetingId) => {
+    if (!confirm("모임을 완료 처리할까요?")) return;
+    const { error } = await completeMeeting(meetingId);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     await loadData();
   };
 
@@ -145,12 +158,12 @@ function MeetingManagePage() {
     await loadData();
   };
 
-  const reopenMeeting = async (meetingId) => {
-    const ok = confirm("모임을 다시 모집중으로 전환할까요?");
+  const reopenAttendance = async (meetingId) => {
+    const ok = confirm("참석자 마감을 취소하고 다시 신청받을까요?");
 
     if (!ok) return;
 
-    const { error } = await updateMeetingStatusRequest(meetingId, "OPN");
+    const { error } = await reopenMeetingAttendance(meetingId);
 
     if (error) {
       alert(error.message);
@@ -244,7 +257,7 @@ function MeetingManagePage() {
                 </Box>
 
                 <Chip
-                  label={getStatusLabel(meeting.status)}
+                  label={getMeetingPhaseLabel(meeting, getStatusLabel)}
                   color={meeting.status === "OPN" ? "primary" : "default"}
                   size="small"
                   sx={{ fontWeight: 700 }}
@@ -281,23 +294,35 @@ function MeetingManagePage() {
                   </Button>
                 )}
 
-                {meeting.status === "OPN" && (
+                {meeting.status === "OPN" && !meeting.attendance_closed_at && (
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => closeMeeting(meeting.meeting_id)}
+                    onClick={() => closeAttendance(meeting.meeting_id)}
                   >
-                    마감/대진생성
+                    참석자 마감
                   </Button>
                 )}
 
-                {meeting.status === "CLS" && (
+                {meeting.status === "OPN" && meeting.attendance_closed_at && !meeting.battle_generated_at && (
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => reopenMeeting(meeting.meeting_id)}
+                    onClick={() => generateBattle(meeting.meeting_id)}
                   >
-                    모집중 전환
+                    배틀 마감/대진 생성
+                  </Button>
+                )}
+
+                {meeting.status === "OPN" && meeting.attendance_closed_at && !meeting.battle_generated_at && (
+                  <Button size="small" onClick={() => reopenAttendance(meeting.meeting_id)}>
+                    참석 다시 열기
+                  </Button>
+                )}
+
+                {meeting.status === "OPN" && meeting.attendance_closed_at && (
+                  <Button fullWidth variant="outlined" onClick={() => finishMeeting(meeting.meeting_id)}>
+                    모임 완료
                   </Button>
                 )}
 
@@ -437,6 +462,13 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getMeetingPhaseLabel(meeting, getStatusLabel) {
+  if (meeting.status !== "OPN") return getStatusLabel(meeting.status);
+  if (meeting.battle_generated_at) return "대진 생성 완료";
+  if (meeting.attendance_closed_at) return "참석 마감";
+  return getStatusLabel(meeting.status);
 }
 
 export default MeetingManagePage;

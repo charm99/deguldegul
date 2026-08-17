@@ -8,7 +8,7 @@ export const fetchCalendarMeetings = (start, end) =>
     .from("degul_meeting")
     .select(`
       meeting_id, meeting_nm, meeting_tp, meeting_dt, max_member_cnt, memo,
-      status, created_by,
+      status, created_by, attendance_closed_at, battle_generated_at,
       center:center_id (center_nm, address, bank_nm, account_no, account_holder, game_cost)
     `)
     .eq("use_yn", "Y")
@@ -34,15 +34,22 @@ export const fetchBattleEntries = (meetingIds) =>
 export const saveAttendance = (payload) =>
   supabase.from("degul_attendance").upsert(payload, { onConflict: "meeting_id,user_id" });
 
+export const updateMyBattleJoin = (meetingId, battleJoinYn) =>
+  supabase.rpc("update_my_battle_join", {
+    p_meeting_id: meetingId,
+    p_battle_join_yn: battleJoinYn,
+  });
+
 export const createFlashMeeting = (payload) => supabase.from("degul_meeting").insert(payload);
 
-export const closeOwnedFlashMeeting = (meetingId, userId) =>
-  supabase
-    .from("degul_meeting")
-    .update({ status: "CLS", updated_at: new Date().toISOString() })
-    .eq("meeting_id", meetingId)
-    .eq("created_by", userId)
-    .eq("meeting_tp", "FLS");
+export const closeMeetingAttendance = (meetingId) =>
+  supabase.rpc("close_meeting_attendance", { p_meeting_id: meetingId });
+
+export const finalizeBattleMatches = (meetingId) =>
+  supabase.rpc("finalize_battle_matches", { p_meeting_id: meetingId });
+
+export const completeMeeting = (meetingId) =>
+  supabase.rpc("complete_meeting", { p_meeting_id: meetingId });
 
 export const cancelOwnedFlashMeeting = (meetingId, userId) =>
   supabase
@@ -51,10 +58,8 @@ export const cancelOwnedFlashMeeting = (meetingId, userId) =>
     .eq("meeting_id", meetingId)
     .eq("meeting_tp", "FLS")
     .eq("created_by", userId)
+    .is("attendance_closed_at", null)
     .eq("status", "OPN");
-
-export const generateBattleMatches = (meetingId) =>
-  supabase.rpc("generate_battle_matches", { p_meeting_id: meetingId });
 
 export const deleteUserScores = (meetingId, userId) =>
   supabase.from("degul_score").delete().eq("meeting_id", meetingId).eq("user_id", userId);

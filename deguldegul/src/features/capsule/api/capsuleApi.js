@@ -23,6 +23,12 @@ export const fetchAdminCapsuleHistory = (roundId) =>
     p_round_id: roundId,
   });
 
+export const updateCapsulePrizePaid = ({ capsuleId, paid }) =>
+  supabase.rpc("admin_update_capsule_prize_paid", {
+    p_capsule_id: capsuleId,
+    p_paid_yn: paid ? "Y" : "N",
+  });
+
 export const createCapsuleRound = ({
   roundYear,
   roundNo,

@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -30,6 +31,7 @@ import {
   fetchAdminCapsuleRounds,
   grantAttendanceCapsuleCoins,
   startCapsuleRound,
+  updateCapsulePrizePaid,
 } from "../../features/capsule/api/capsuleApi";
 import { formatDateTime } from "../../shared/utils/date";
 
@@ -42,6 +44,7 @@ function CapsuleManagePage() {
   const [historyRound, setHistoryRound] = useState(null);
   const [historyTab, setHistoryTab] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [payingCapsuleId, setPayingCapsuleId] = useState(null);
   const [history, setHistory] = useState({ coin_history: [], winner_history: [] });
 
   const loadRounds = async () => {
@@ -109,6 +112,33 @@ function CapsuleManagePage() {
       return;
     }
     setHistory(data || { coin_history: [], winner_history: [] });
+  };
+
+  const handlePrizePaidChange = async (item, paid) => {
+    setPayingCapsuleId(item.capsule_id);
+    const { data, error } = await updateCapsulePrizePaid({
+      capsuleId: item.capsule_id,
+      paid,
+    });
+    setPayingCapsuleId(null);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setHistory((previous) => ({
+      ...previous,
+      winner_history: previous.winner_history.map((winner) =>
+        winner.capsule_id === item.capsule_id
+          ? {
+              ...winner,
+              prize_paid_yn: data?.prize_paid_yn || (paid ? "Y" : "N"),
+              prize_paid_at: data?.prize_paid_at || null,
+            }
+          : winner
+      ),
+    }));
   };
 
   return (
@@ -203,7 +233,9 @@ function CapsuleManagePage() {
         loading={historyLoading}
         tab={historyTab}
         history={history}
+        payingCapsuleId={payingCapsuleId}
         onTabChange={setHistoryTab}
+        onPrizePaidChange={handlePrizePaidChange}
         onClose={() => setHistoryRound(null)}
       />
     </Box>
@@ -216,7 +248,9 @@ function CapsuleAdminHistoryDialog({
   loading,
   tab,
   history,
+  payingCapsuleId,
   onTabChange,
+  onPrizePaidChange,
   onClose,
 }) {
   const rows = tab === 0 ? history.coin_history : history.winner_history;
@@ -252,7 +286,14 @@ function CapsuleAdminHistoryDialog({
           <Stack spacing={1}>
             {tab === 0
               ? rows.map((item) => <CoinHistoryRow key={item.coin_history_id} item={item} />)
-              : rows.map((item) => <WinnerHistoryRow key={item.capsule_id} item={item} />)}
+              : rows.map((item) => (
+                  <WinnerHistoryRow
+                    key={item.capsule_id}
+                    item={item}
+                    saving={payingCapsuleId === item.capsule_id}
+                    onPaidChange={onPrizePaidChange}
+                  />
+                ))}
           </Stack>
         )}
       </DialogContent>
@@ -291,7 +332,9 @@ function CoinHistoryRow({ item }) {
   );
 }
 
-function WinnerHistoryRow({ item }) {
+function WinnerHistoryRow({ item, saving, onPaidChange }) {
+  const paid = item.prize_paid_yn === "Y";
+
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -302,6 +345,24 @@ function WinnerHistoryRow({ item }) {
         <Typography color="text.secondary" fontSize={12}>
           캡슐 #{item.capsule_no} · {formatDateTime(item.drawn_at)}
         </Typography>
+        <Stack direction="row" alignItems="center" sx={{ mt: 0.5 }}>
+          <Checkbox
+            size="small"
+            checked={paid}
+            disabled={saving}
+            onChange={(event) => onPaidChange(item, event.target.checked)}
+            inputProps={{ "aria-label": `${item.prize_nm} 상품 지급 여부` }}
+            sx={{ p: 0.5, mr: 0.5 }}
+          />
+          <Typography fontSize={13} fontWeight={700} color={paid ? "success.main" : "text.secondary"}>
+            {saving ? "저장 중..." : paid ? "지급 완료" : "미지급"}
+          </Typography>
+          {paid && item.prize_paid_at && (
+            <Typography color="text.secondary" fontSize={11} sx={{ ml: 1 }}>
+              {formatDateTime(item.prize_paid_at)}
+            </Typography>
+          )}
+        </Stack>
       </CardContent>
     </Card>
   );

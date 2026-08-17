@@ -20,7 +20,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import { koreanDateTimeLocalToUtcIso } from "../../shared/utils/date";
 import {
   cancelOwnedFlashMeeting,
-  closeOwnedFlashMeeting,
+  closeMeetingAttendance,
+  completeMeeting,
   createFlashMeeting,
   deleteUserScores,
   fetchActiveCenters,
@@ -30,9 +31,10 @@ import {
   fetchMeetingAttendances,
   fetchUserAttendances,
   fetchUserScores,
-  generateBattleMatches,
+  finalizeBattleMatches,
   insertScores,
   saveAttendance,
+  updateMyBattleJoin,
 } from "../../features/calendar/api/calendarApi";
 
 import EmptyState from "./components/EmptyState";
@@ -322,6 +324,23 @@ function CalendarPage() {
       return;
     }
 
+    if (voteMeeting.attendance_closed_at) {
+      const { error } = await updateMyBattleJoin(
+        voteMeeting.meeting_id,
+        voteForm.battle_join_yn
+      );
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setVoteDialogOpen(false);
+      await loadMyAttendances();
+      await loadBattleEntries();
+      return;
+    }
+
     const payload = {
       meeting_id: voteMeeting.meeting_id,
       user_id: profile.id,
@@ -381,7 +400,7 @@ function CalendarPage() {
     setFlashForm(EMPTY_FLASH_FORM);
     await loadMeetings();
   };
-  const closeFlashMeeting = async (meeting) => {
+  const closeFlashAttendance = async (meeting) => {
     if (meeting.meeting_tp !== "FLS") return;
 
     if (meeting.created_by !== profile?.id) {
@@ -389,29 +408,42 @@ function CalendarPage() {
       return;
     }
 
-    const ok = confirm(
-      "번개를 마감하고 배틀로얄 대진표를 생성할까요?\n마감 후에는 참석 투표를 수정할 수 없습니다."
-    );
+    const ok = confirm("예약 인원 확정을 위해 참석자를 마감할까요?\n마감 후에도 배틀 참가 여부는 변경할 수 있습니다.");
 
     if (!ok) return;
 
-    const { error: updateError } = await closeOwnedFlashMeeting(
-      meeting.meeting_id,
-      profile.id
-    );
+    const { error: updateError } = await closeMeetingAttendance(meeting.meeting_id);
 
     if (updateError) {
       alert(updateError.message);
       return;
     }
 
-    const { error: battleError } = await generateBattleMatches(meeting.meeting_id);
+    await loadMeetings();
+  };
+
+  const generateFlashBattle = async (meeting) => {
+    if (meeting.created_by !== profile?.id) return;
+    if (!confirm("현재 배틀 참가자로 대진표를 확정할까요?\n생성 후에는 배틀 참가 여부를 변경할 수 없습니다.")) return;
+
+    const { error: battleError } = await finalizeBattleMatches(meeting.meeting_id);
 
     if (battleError) {
       alert(`대진표 생성 실패: ${battleError.message}`);
       return;
     }
 
+    await loadMeetings();
+  };
+
+  const completeFlashMeeting = async (meeting) => {
+    if (meeting.created_by !== profile?.id) return;
+    if (!confirm("번개 모임을 완료 처리할까요?")) return;
+    const { error } = await completeMeeting(meeting.meeting_id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     await loadMeetings();
   };
   const deleteFlashMeeting = async (meeting) => {
@@ -543,8 +575,8 @@ function CalendarPage() {
 
   const renderSelectedContent = () => {
     const openBattleDialog = async (meeting) => {
-      if (meeting.status !== "CLS") {
-        alert("모임이 마감된 후 확인 가능합니다.");
+      if (!meeting.battle_generated_at && meeting.status !== "CLS") {
+        alert("대진표가 생성된 후 확인 가능합니다.");
         return;
       }
 
@@ -605,7 +637,9 @@ function CalendarPage() {
                 onScoreClick={() => openScoreDialog(meeting)}
                 onVoteClick={() => openVoteDialog(meeting)}
                 onBattleClick={() => openBattleDialog(meeting)}
-                onCloseFlashClick={() => closeFlashMeeting(meeting)}
+                onCloseFlashClick={() => closeFlashAttendance(meeting)}
+                onGenerateBattleClick={() => generateFlashBattle(meeting)}
+                onCompleteMeetingClick={() => completeFlashMeeting(meeting)}
                 onDeleteFlashClick={() => deleteFlashMeeting(meeting)}
                 onAttendanceListClick={() => openAttendanceListDialog(meeting)}
               />

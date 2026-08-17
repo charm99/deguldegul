@@ -28,10 +28,11 @@ function VoteDialog({
   const { getCodes } = useCommonCodes();
   const attendanceStatuses = getCodes(COMMON_CODE_GROUP.ATTENDANCE_STATUS);
   const canBattle = ["ATD", "LAT"].includes(voteForm.attendance_tp);
+  const attendanceClosed = Boolean(meeting?.attendance_closed_at);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth>
-      <DialogTitle>참석 투표</DialogTitle>
+      <DialogTitle>{attendanceClosed ? "배틀 참가 여부 변경" : "참석 투표"}</DialogTitle>
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -46,6 +47,7 @@ function VoteDialog({
             select
             label="참석상태"
             value={voteForm.attendance_tp}
+            disabled={attendanceClosed}
             onChange={(e) => {
               const nextAttendanceTp = e.target.value;
 
@@ -83,9 +85,16 @@ function VoteDialog({
             />
           )}
 
+          {attendanceClosed && (
+            <Typography variant="body2" color="text.secondary">
+              예약 인원이 마감되어 일반 참석 정보는 변경할 수 없습니다.
+            </Typography>
+          )}
+
           <TextField
             label="메모"
             value={voteForm.memo}
+            disabled={attendanceClosed}
             onChange={(e) => setVoteForm({ ...voteForm, memo: e.target.value })}
             multiline
             minRows={2}

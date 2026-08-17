@@ -26,6 +26,7 @@ import {
 import { createLaneAssignment } from "../../../features/admin/model/laneAssignment";
 
 function MeetingParticipantDialog({ meeting, open, canSeePhone, onClose }) {
+  const attendanceClosed = Boolean(meeting?.attendance_closed_at);
   const [users, setUsers] = useState([]);
   const [attendees, setAttendees] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -175,6 +176,11 @@ function MeetingParticipantDialog({ meeting, open, canSeePhone, onClose }) {
 
       <DialogContent dividers sx={{ bgcolor: "#f7f7f8", p: 2 }}>
         {message && <Alert severity="error" sx={{ mb: 1.25 }}>{message}</Alert>}
+        {attendanceClosed && (
+          <Alert severity="info" sx={{ mb: 1.25 }}>
+            예약 참석자가 마감되어 인원 추가·제외는 할 수 없습니다. 레인 편성은 계속 변경할 수 있습니다.
+          </Alert>
+        )}
 
         <Section title={`참석자 ${attendees.length}명`}>
           <Stack direction="row" spacing={0.75} sx={{ mb: 1.25 }}>
@@ -194,7 +200,7 @@ function MeetingParticipantDialog({ meeting, open, canSeePhone, onClose }) {
             </TextField>
             <Button
               variant="contained"
-              disabled={!selectedUserId || busy}
+              disabled={attendanceClosed || !selectedUserId || busy}
               onClick={handleAdd}
               sx={{ minWidth: 58, bgcolor: "#0868f7", fontWeight: 800 }}
             >
@@ -226,7 +232,7 @@ function MeetingParticipantDialog({ meeting, open, canSeePhone, onClose }) {
                 <IconButton
                   size="small"
                   color="error"
-                  disabled={busy}
+                  disabled={attendanceClosed || busy}
                   onClick={() => handleRemove(attendee)}
                 >
                   <DeleteOutlinedIcon fontSize="small" />

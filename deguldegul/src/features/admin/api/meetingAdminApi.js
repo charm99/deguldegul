@@ -7,7 +7,8 @@ export async function fetchMeetingAdminData() {
       .from("degul_meeting")
       .select(`
         meeting_id, meeting_nm, meeting_tp, meeting_dt, max_member_cnt,
-        memo, status, center:center_id (center_nm)
+        memo, status, attendance_closed_at, battle_generated_at,
+        center:center_id (center_nm)
       `)
       .eq("use_yn", "Y")
       .order("meeting_dt", { ascending: true }),
@@ -29,8 +30,17 @@ export function updateMeetingStatus(meetingId, status) {
     .eq("meeting_id", meetingId);
 }
 
-export const generateBattleMatches = (meetingId) =>
-  supabase.rpc("generate_battle_matches", { p_meeting_id: meetingId });
+export const closeMeetingAttendance = (meetingId) =>
+  supabase.rpc("close_meeting_attendance", { p_meeting_id: meetingId });
+
+export const reopenMeetingAttendance = (meetingId) =>
+  supabase.rpc("reopen_meeting_attendance", { p_meeting_id: meetingId });
+
+export const finalizeBattleMatches = (meetingId) =>
+  supabase.rpc("finalize_battle_matches", { p_meeting_id: meetingId });
+
+export const completeMeeting = (meetingId) =>
+  supabase.rpc("complete_meeting", { p_meeting_id: meetingId });
 
 export async function fetchMeetingParticipantAdminData(meetingId, canSeePhone = false) {
   const userColumns = canSeePhone

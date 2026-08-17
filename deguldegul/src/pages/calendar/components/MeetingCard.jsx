@@ -22,6 +22,8 @@ function MeetingCard({
   onVoteClick,
   onBattleClick,
   onCloseFlashClick,
+  onGenerateBattleClick,
+  onCompleteMeetingClick,
   onDeleteFlashClick,
   onAttendanceListClick,
 }) {
@@ -34,6 +36,11 @@ function MeetingCard({
     meeting.meeting_tp === "FLS" &&
     meeting.created_by === profile?.id &&
     meeting.status === "OPN";
+  const canEditVote =
+    meeting.status === "OPN" &&
+    !meeting.battle_generated_at &&
+    (!meeting.attendance_closed_at ||
+      ["ATD", "LAT"].includes(attendance?.attendance_tp));
   const canEnterScore =
     attendance && ["ATD", "LAT"].includes(attendance.attendance_tp);
   const hasScores = scores.length > 0;
@@ -80,22 +87,26 @@ function MeetingCard({
           </Typography>
           {isFlashOwner && (
             <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
-              <Button
-                size="small"
-                color="warning"
-                onClick={onCloseFlashClick}
-                sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}
-              >
-                마감
-              </Button>
-              <Button
-                size="small"
-                color="error"
-                onClick={onDeleteFlashClick}
-                sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}
-              >
-                삭제
-              </Button>
+              {!meeting.attendance_closed_at && (
+                <Button size="small" color="warning" onClick={onCloseFlashClick} sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}>
+                  참석마감
+                </Button>
+              )}
+              {meeting.attendance_closed_at && !meeting.battle_generated_at && (
+                <Button size="small" color="warning" onClick={onGenerateBattleClick} sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}>
+                  대진생성
+                </Button>
+              )}
+              {meeting.attendance_closed_at && (
+                <Button size="small" onClick={onCompleteMeetingClick} sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}>
+                  완료
+                </Button>
+              )}
+              {!meeting.attendance_closed_at && (
+                <Button size="small" color="error" onClick={onDeleteFlashClick} sx={{ minWidth: 36, px: 0.5, fontSize: 11 }}>
+                  삭제
+                </Button>
+              )}
             </Stack>
           )}
         </Stack>
@@ -198,6 +209,9 @@ function MeetingCard({
               size="small"
               sx={chipSx(meeting.status === "OPN" ? "#f1edff" : "#eeeeef", meeting.status === "OPN" ? "#7657dc" : "#666a70")}
             />
+            {meeting.attendance_closed_at && meeting.status === "OPN" && (
+              <Chip label={meeting.battle_generated_at ? "대진확정" : "참석마감"} size="small" sx={chipSx("#fff1df", "#dc7900")} />
+            )}
             {attendance && (
               <Chip
                 label={getCodeName(
@@ -257,9 +271,9 @@ function MeetingCard({
           <ActionButton
             primary
             onClick={onVoteClick}
-            disabled={meeting.status !== "OPN"}
+            disabled={!canEditVote}
           >
-            {attendance ? "참석수정" : "참석투표"}
+            {meeting.attendance_closed_at ? "배틀참가 수정" : attendance ? "참석수정" : "참석투표"}
           </ActionButton>
         </Stack>
 
