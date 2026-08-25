@@ -79,5 +79,16 @@ export function isVersionedDataRequest(input, init = {}) {
   const method = String(init.method || (input instanceof Request ? input.method : "GET"))
     .toUpperCase();
   const url = String(input instanceof Request ? input.url : input);
+
+  // PostgREST RPC는 조회 함수도 POST를 사용한다. get_* 계열은 데이터를
+  // 변경하지 않으므로 저장 요청 버전 차단 대상에서 제외한다.
+  const rpcMarker = "/rest/v1/rpc/";
+  if (method === "POST" && url.includes(rpcMarker)) {
+    const rpcName = url.split(rpcMarker)[1]?.split(/[?#]/)[0] || "";
+    if (rpcName.startsWith("get_") || rpcName.startsWith("admin_get_")) {
+      return false;
+    }
+  }
+
   return url.includes("/rest/v1/") && method !== "GET" && method !== "HEAD";
 }
