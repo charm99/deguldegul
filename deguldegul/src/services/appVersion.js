@@ -7,7 +7,7 @@ let pendingCheck = null;
 let refreshing = false;
 
 async function fetchDeployedVersion() {
-  const response = await fetch(`/version.json?t=${Date.now()}`, {
+  const response = await fetch("/version.json", {
     cache: "no-store",
     headers: {
       "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -44,7 +44,7 @@ async function reloadWithVersion(version) {
   }
 }
 
-export async function ensureCurrentAppVersion({ force = false, blockOnFailure = false } = {}) {
+export async function ensureCurrentAppVersion({ force = false } = {}) {
   if (import.meta.env.DEV) return true;
   if (refreshing) return false;
 
@@ -62,7 +62,7 @@ export async function ensureCurrentAppVersion({ force = false, blockOnFailure = 
         return false;
       }
 
-      return !blockOnFailure;
+      return true;
     } catch (error) {
       // 일시적인 네트워크 장애 때문에 정상 사용까지 막지는 않는다.
       console.warn("앱 버전을 확인하지 못했습니다.", error);
