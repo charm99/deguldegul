@@ -38,8 +38,41 @@ export async function fetchRankings(range, year) {
   };
 }
 
-export function fetchBattleRanking() {
-  return supabase.rpc("get_battle_ranking");
+export async function fetchBattleRanking() {
+  const [rankingResult, streakResult] = await Promise.all([
+    supabase.rpc("get_battle_ranking"),
+    supabase.rpc("get_battle_current_streaks"),
+  ]);
+
+  const error = rankingResult.error || streakResult.error;
+  if (error) return { data: null, error };
+
+  const streakByUser = new Map(
+    (streakResult.data || []).map((item) => [item.user_id, Number(item.current_streak || 0)])
+  );
+
+  return {
+    data: (rankingResult.data || []).map((item) => ({
+      ...item,
+      current_streak: streakByUser.get(item.user_id) || 0,
+    })),
+    error: null,
+  };
+}
+
+export function fetchBattlePointHistory(userId) {
+  return supabase
+    .from("degul_point_history")
+    .select(`
+      point_hist_id, user_id, point_tp, point, memo, created_at,
+      meeting:meeting_id (meeting_nm, meeting_dt),
+      battle:battle_id (
+        battle_id, game_no, user1_id, user2_id,
+        user1:user1_id (id, name, nickname),
+        user2:user2_id (id, name, nickname)
+      )
+    `)
+    .eq("user_id", userId);
 }
 
 export function fetchMyRecords() {

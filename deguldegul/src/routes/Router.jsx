@@ -28,6 +28,7 @@ import UserManagePage from "../pages/admin/UserManagePage";
 import MeetingManagePage from "../pages/admin/MeetingManagePage";
 import BattleManagePage from "../pages/admin/BattleManagePage";
 import CapsuleManagePage from "../pages/admin/CapsuleManagePage";
+import AttendanceStatusPage from "../pages/admin/AttendanceStatusPage";
 import CapsulePage from "../pages/capsule/CapsulePage";
 
 import BoardPage from "../pages/board/BoardPage";
@@ -70,6 +71,7 @@ function Router() {
               <Route path="/admin/centers" element={<CenterManagePage />} />
               <Route path="/admin/meetings" element={<MeetingManagePage />} />
               <Route path="/admin/capsule" element={<CapsuleManagePage />} />
+              <Route path="/admin/attendance-status" element={<AttendanceStatusPage />} />
             </Route>
 
             <Route element={<RoleRoute roles={USER_MANAGER_ROLES} />}>

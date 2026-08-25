@@ -37,3 +37,34 @@ export function fetchMonthlyBattleAttendances(startDate, endDate) {
 export function refreshBattleResults() {
   return supabase.rpc("refresh_battle_results");
 }
+
+export async function fetchMonthlyAttendanceStatus(startDate, endDate) {
+  const [userResult, attendanceResult] = await Promise.all([
+    supabase
+      .from("degul_users")
+      .select("id, name, nickname")
+      .eq("status", "ACT")
+      .order("name"),
+    supabase
+      .from("degul_attendance")
+      .select(`
+        user_id, attendance_tp,
+        meeting:meeting_id!inner (meeting_id, meeting_nm, meeting_tp, meeting_dt, status)
+      `)
+      .in("attendance_tp", ["ATD", "LAT"])
+      .eq("meeting.status", "CLS")
+      .gte("meeting.meeting_dt", startDate)
+      .lt("meeting.meeting_dt", endDate),
+  ]);
+
+  const error = userResult.error || attendanceResult.error;
+  return {
+    data: error
+      ? null
+      : {
+          users: userResult.data || [],
+          attendances: attendanceResult.data || [],
+        },
+    error,
+  };
+}

@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { signOut } from "../../features/auth/api/authApi";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { canAccessAdmin } from "../../shared/model/permissions";
+import { APP_VERSION } from "../../services/appVersion";
 
 function ProfilePage() {
   const navigate = useNavigate();
@@ -107,6 +108,15 @@ function ProfilePage() {
           </List>
         </Card>
       )}
+
+      <Typography
+        variant="caption"
+        color="text.disabled"
+        textAlign="center"
+        sx={{ display: "block", mt: 2.5, fontSize: 10 }}
+      >
+        웹앱 버전 {APP_VERSION}
+      </Typography>
     </Box>
   );
 }

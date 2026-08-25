@@ -14,15 +14,23 @@ import {
   Tabs,
   Typography,
   Alert,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from "@mui/material";
 
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchBattleRanking,
+  fetchBattlePointHistory,
   fetchPersonalStats,
   fetchRankings,
 } from "../../features/ranking/api/rankingApi";
+import { useCommonCodes } from "../../contexts/useCommonCodes";
+import { COMMON_CODE_GROUP } from "../../shared/constants/commonCodeGroups";
 
 function RankingPage() {
   const [tab, setTab] = useState(0);
@@ -470,6 +478,7 @@ function BattleRankingView() {
   const [battleRanking, setBattleRanking] = useState([]);
   const [sortKey, setSortKey] = useState("point");
   const [message, setMessage] = useState("");
+  const [selectedMember, setSelectedMember] = useState(null);
 
   const sortedRows = useMemo(() => {
     return [...battleRanking].sort((a, b) => {
@@ -522,22 +531,35 @@ function BattleRankingView() {
         </Select>
       </Stack>
 
-      <BattleRankingGrid rows={sortedRows} />
+      <BattleRankingGrid rows={sortedRows} onRowClick={setSelectedMember} />
+      <BattlePointHistoryDialog
+        member={selectedMember}
+        onClose={() => setSelectedMember(null)}
+      />
     </Stack>
   );
 }
 
-function BattleRankingGrid({ rows }) {
+function BattleRankingGrid({ rows, onRowClick }) {
   return (
     <Stack spacing={0.8}>
       {rows.map((item, index) => (
         <Box
           key={item.user_id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onRowClick(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") onRowClick(item);
+          }}
           sx={{
             p: 1.5,
             bgcolor: "#fff",
             border: index === 0 ? "1px solid #bcd8ff" : "1px solid #eceef2",
             borderRadius: 2,
+            cursor: "pointer",
+            transition: "background-color .15s",
+            "&:hover": { bgcolor: "#f6f9ff" },
           }}
         >
           <Stack direction="row" alignItems="center">
@@ -548,6 +570,7 @@ function BattleRankingGrid({ rows }) {
               </Typography>
               <Typography color="#858991" sx={{ mt: 0.2, fontSize: 11 }}>
                 {item.battle_count}전 {item.win_count}승 {item.lose_count}패
+                {` · 현재 ${Number(item.current_streak || 0)}연승`}
               </Typography>
             </Box>
             <Box sx={{ textAlign: "right" }}>
@@ -570,6 +593,141 @@ function BattleRankingGrid({ rows }) {
     </Stack>
   );
 }
+
+function BattlePointHistoryDialog({ member, onClose }) {
+  const { getCodeName } = useCommonCodes();
+  const [histories, setHistories] = useState(null);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!member?.user_id) return;
+    let active = true;
+
+    fetchBattlePointHistory(member.user_id).then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage(error.message);
+        setHistories([]);
+      } else {
+        let total = 0;
+        const rows = [...(data || [])].sort(compareBattleHistory).map((item) => {
+          total += Number(item.point || 0);
+          return { ...item, totalPoint: total };
+        });
+        setMessage("");
+        setHistories(rows.reverse());
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [member]);
+
+  const handleClose = () => {
+    setHistories(null);
+    setMessage("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={Boolean(member)} onClose={handleClose} fullWidth maxWidth="sm">
+      <DialogTitle>
+        <Typography fontWeight={900} component="span">
+          {member?.nickname || member?.user_nm} 점수 이력
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers sx={{ px: 1.5 }}>
+        {message && <Alert severity="error" sx={{ mb: 1.5 }}>{message}</Alert>}
+        {histories === null ? (
+          <Box sx={{ py: 6, textAlign: "center" }}><CircularProgress size={28} /></Box>
+        ) : histories.length === 0 ? (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 5 }}>
+            점수 이력이 없습니다.
+          </Typography>
+        ) : (
+          <Box sx={{ overflowX: "auto" }}>
+            <Box sx={{ minWidth: 430 }}>
+              <Box sx={historyGridSx}>
+                {['날짜', '점수 획득유형 (대결 상대)', '획득', '총점'].map((label) => (
+                  <Typography key={label} color="#858991" fontWeight={800} sx={{ fontSize: 11 }}>
+                    {label}
+                  </Typography>
+                ))}
+              </Box>
+              {histories.map((item) => {
+                const opponent = getBattleOpponent(item, member.user_id);
+                const typeLabel = getCodeName(COMMON_CODE_GROUP.POINT_TYPE, item.point_tp);
+                const point = Number(item.point || 0);
+                return (
+                  <Box key={item.point_hist_id} sx={{ ...historyGridSx, borderBottom: "1px solid #f0f1f3" }}>
+                    <Typography sx={{ fontSize: 11.5 }}>
+                      {formatShortDate(item.meeting?.meeting_dt)}
+                    </Typography>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Chip label={typeLabel || item.point_tp} size="small" sx={{ height: 22, fontWeight: 800 }} />
+                      {(item.battle?.game_no || opponent) && (
+                        <Typography noWrap color="text.secondary" sx={{ mt: 0.35, fontSize: 11 }}>
+                          {item.battle?.game_no ? `${item.battle.game_no}게임` : ""}
+                          {opponent ? `${item.battle?.game_no ? " · " : ""}vs ${opponent}` : ""}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography color={point >= 0 ? "#0868f7" : "error.main"} fontWeight={900} sx={{ fontSize: 12.5 }}>
+                      {point > 0 ? "+" : ""}{point}P
+                    </Typography>
+                    <Typography fontWeight={900} sx={{ fontSize: 12.5 }}>{item.totalPoint}P</Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function getBattleOpponent(history, userId) {
+  const battle = history.battle;
+  if (!battle) return "";
+  const opponent = battle.user1_id === userId ? battle.user2 : battle.user1;
+  return opponent?.nickname || opponent?.name || "";
+}
+
+function compareBattleHistory(a, b) {
+  const meetingDateDifference =
+    new Date(a.meeting?.meeting_dt || 0) - new Date(b.meeting?.meeting_dt || 0);
+  if (meetingDateDifference !== 0) return meetingDateDifference;
+
+  // 참석점수처럼 경기에 속하지 않는 이력은 해당 모임의 경기 포인트보다 먼저 계산한다.
+  const gameDifference = Number(a.battle?.game_no || 0) - Number(b.battle?.game_no || 0);
+  if (gameDifference !== 0) return gameDifference;
+
+  const createdAtDifference = new Date(a.created_at) - new Date(b.created_at);
+  if (createdAtDifference !== 0) return createdAtDifference;
+
+  return String(a.point_hist_id).localeCompare(String(b.point_hist_id));
+}
+
+function formatShortDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+const historyGridSx = {
+  display: "grid",
+  gridTemplateColumns: "72px minmax(180px, 1fr) 56px 60px",
+  gap: 0.75,
+  alignItems: "center",
+  px: 1,
+  py: 1,
+};
 
 function RankingTableCard({ title, columns, rows }) {
   return (

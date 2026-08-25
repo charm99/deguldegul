@@ -71,6 +71,17 @@ function AdminPage() {
 
         <Card sx={{ borderRadius: 3 }}>
           <List>
+            <ListItemButton onClick={() => navigate("/admin/attendance-status")}>
+              <ListItemText
+                primary="출석 현황관리"
+                secondary="월별 출석 점수와 출석 미달자를 조회합니다."
+              />
+            </ListItemButton>
+          </List>
+        </Card>
+
+        <Card sx={{ borderRadius: 3 }}>
+          <List>
             <ListItemButton onClick={() => navigate("/admin/capsule")}>
               <ListItemText
                 primary="캡슐 이벤트 관리"

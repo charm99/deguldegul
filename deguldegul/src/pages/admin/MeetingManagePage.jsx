@@ -17,11 +17,13 @@ import {
   DialogActions,
   Chip,
   FormControlLabel,
+  Snackbar,
   Switch,
 } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -66,6 +68,7 @@ function MeetingManagePage() {
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
   const [participantMeeting, setParticipantMeeting] = useState(null);
+  const [copyNotice, setCopyNotice] = useState(null);
 
   const filteredMeetings = useMemo(() => {
     if (!onlyOpen) return meetings;
@@ -173,6 +176,22 @@ function MeetingManagePage() {
     await loadData();
   };
 
+  const copyMeetingId = async (meeting) => {
+    try {
+      await navigator.clipboard.writeText(meeting.meeting_id);
+      setCopyNotice({
+        severity: "success",
+        message: `${meeting.meeting_nm} UUID를 복사했습니다.`,
+      });
+    } catch (error) {
+      console.error(error);
+      setCopyNotice({
+        severity: "error",
+        message: "UUID를 복사하지 못했습니다.",
+      });
+    }
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -275,6 +294,16 @@ function MeetingManagePage() {
               <Typography variant="body2" color="text.secondary">
                 최대인원: {meeting.max_member_cnt || "제한없음"}
               </Typography>
+
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
+                onClick={() => copyMeetingId(meeting)}
+                sx={{ mt: 0.5, px: 0, minWidth: 0, fontSize: 12 }}
+              >
+                모임 UUID 복사
+              </Button>
 
               {meeting.memo && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
@@ -448,6 +477,22 @@ function MeetingManagePage() {
         canSeePhone={canSeePrivateUserInfo(profile)}
         onClose={() => setParticipantMeeting(null)}
       />
+
+      <Snackbar
+        open={Boolean(copyNotice)}
+        autoHideDuration={2500}
+        onClose={() => setCopyNotice(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={copyNotice?.severity || "success"}
+          variant="filled"
+          onClose={() => setCopyNotice(null)}
+          sx={{ width: "100%" }}
+        >
+          {copyNotice?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
