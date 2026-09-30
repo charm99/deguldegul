@@ -10,6 +10,9 @@ import {
   Tab,
   Tabs,
   Typography,
+  Chip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import ChatBubbleOutlinedIcon from "@mui/icons-material/ChatBubbleOutlined";
@@ -18,6 +21,8 @@ import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import { getBoards } from "../../services/boardService";
 import { useAuth } from "../../contexts/AuthContext";
 import { canManageNotice } from "../../shared/model/permissions";
+import { getBoardCategoryLabel } from "../../shared/constants/boardCategories";
+import { BOARD_CATEGORIES } from "../../shared/constants/boardCategories";
 
 function BoardPage() {
   const navigate = useNavigate();
@@ -30,16 +35,27 @@ function BoardPage() {
   const [message, setMessage] = useState("");
 
   const boardTp = tab === 0 ? "NOT" : "FRI";
+  const requestedCategory = searchParams.get("category");
+  const category = BOARD_CATEGORIES.some((item) => item.value === requestedCategory)
+    ? requestedCategory
+    : "ALL";
   const canWrite = boardTp === "FRI" || canManageNotice(profile);
 
   const handleTabChange = (_, value) => {
     setSearchParams({ type: value === 0 ? "NOT" : "FRI" }, { replace: true });
   };
 
+  const handleCategoryChange = (_, value) => {
+    if (!value) return;
+    const nextParams = { type: "FRI" };
+    if (value !== "ALL") nextParams.category = value;
+    setSearchParams(nextParams, { replace: true });
+  };
+
   useEffect(() => {
     let active = true;
 
-    getBoards(boardTp).then(({ data, error }) => {
+    getBoards(boardTp, boardTp === "FRI" && category !== "ALL" ? category : null).then(({ data, error }) => {
       if (!active) return;
 
       if (error) {
@@ -55,7 +71,7 @@ function BoardPage() {
     return () => {
       active = false;
     };
-  }, [boardTp]);
+  }, [boardTp, category]);
 
   return (
     <Box
@@ -95,6 +111,15 @@ function BoardPage() {
           <Tab label="자유게시판" />
         </Tabs>
       </Box>
+
+      {boardTp === "FRI" && (
+        <Box sx={{ px: 2, pt: 1.5, bgcolor: "#f7f7f8", overflowX: "auto" }}>
+          <ToggleButtonGroup exclusive size="small" value={category} onChange={handleCategoryChange} aria-label="자유게시판 카테고리" sx={{ whiteSpace: "nowrap", "& .MuiToggleButton-root": { px: 1.5, py: 0.65, borderRadius: "18px !important", border: "1px solid #e1e4e8 !important", mr: 0.75, color: "#737780", fontSize: 12, fontWeight: 700 }, "& .Mui-selected": { bgcolor: "#eaf3ff !important", color: "#0868f7 !important", borderColor: "#b7d4ff !important" } }}>
+            <ToggleButton value="ALL">전체</ToggleButton>
+            {BOARD_CATEGORIES.map((item) => <ToggleButton key={item.value} value={item.value}>{item.label}</ToggleButton>)}
+          </ToggleButtonGroup>
+        </Box>
+      )}
 
       <Stack spacing={1.1} sx={{ p: 2 }}>
         {message && <Alert severity="error">{message}</Alert>}
@@ -142,6 +167,7 @@ function BoardPage() {
                   >
                     {board.title}
                   </Typography>
+                  {boardTp === "FRI" && <Chip label={getBoardCategoryLabel(board.category)} size="small" sx={{ height: 22, fontSize: 10.5 }} />}
                 </Stack>
 
                 <Stack direction="row" alignItems="center" sx={{ mt: 1.1 }}>

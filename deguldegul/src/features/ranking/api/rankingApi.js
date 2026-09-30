@@ -22,7 +22,7 @@ export async function fetchPersonalStats(year) {
 
 export async function fetchRankings(range, year) {
   const [scoreResult, attendanceResult] = await Promise.all([
-    supabase.rpc("get_score_ranking", { p_range: range, p_year: year }),
+    supabase.rpc("get_score_ranking_since_reset", { p_range: range, p_year: year }),
     supabase.rpc("get_attendance_ranking", { p_range: range, p_year: year }),
   ]);
 

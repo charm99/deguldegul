@@ -55,7 +55,7 @@ export function CommonCodeProvider({ children }) {
 
     let active = true;
 
-    getCommonCodes({ force: true }).then(({ data, error: loadError }) => {
+    getCommonCodes().then(({ data, error: loadError }) => {
       if (!active) return;
 
       if (loadError) {

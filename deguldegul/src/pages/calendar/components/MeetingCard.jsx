@@ -39,6 +39,7 @@ function MeetingCard({
   const canEditVote =
     meeting.status === "OPN" &&
     !meeting.battle_generated_at &&
+    (meeting.meeting_tp !== "LGE" || ["ADM", "MGR", "STF"].includes(profile?.role)) &&
     (!meeting.attendance_closed_at ||
       ["ATD", "LAT"].includes(attendance?.attendance_tp));
   const canEnterScore =
@@ -273,7 +274,9 @@ function MeetingCard({
             onClick={onVoteClick}
             disabled={!canEditVote}
           >
-            {meeting.attendance_closed_at ? "배틀참가 수정" : attendance ? "참석수정" : "참석투표"}
+            {meeting.meeting_tp === "LGE" && !["ADM", "MGR", "STF"].includes(profile?.role)
+              ? "운영진만 참여 가능"
+              : meeting.attendance_closed_at ? "배틀참가 수정" : attendance ? "참석수정" : "참석투표"}
           </ActionButton>
         </Stack>
 

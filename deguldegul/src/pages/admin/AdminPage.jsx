@@ -82,6 +82,14 @@ function AdminPage() {
 
         <Card sx={{ borderRadius: 3 }}>
           <List>
+            <ListItemButton onClick={() => navigate("/admin/averages")}>
+              <ListItemText primary="에버리지 관리" secondary="전체 회원의 게임 수와 에버리지를 조회합니다." />
+            </ListItemButton>
+          </List>
+        </Card>
+
+        <Card sx={{ borderRadius: 3 }}>
+          <List>
             <ListItemButton onClick={() => navigate("/admin/capsule")}>
               <ListItemText
                 primary="캡슐 이벤트 관리"

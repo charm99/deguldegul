@@ -66,14 +66,20 @@ function MeetingManagePage() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(true);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [participantMeeting, setParticipantMeeting] = useState(null);
   const [copyNotice, setCopyNotice] = useState(null);
 
   const filteredMeetings = useMemo(() => {
-    if (!onlyOpen) return meetings;
-    return meetings.filter((meeting) => meeting.status === "OPN");
-  }, [meetings, onlyOpen]);
+    return meetings.filter((meeting) => {
+      const meetingDate = meeting.meeting_dt?.slice(0, 10);
+      return (!onlyOpen || meeting.status === "OPN") &&
+        (!dateFrom || meetingDate >= dateFrom) &&
+        (!dateTo || meetingDate <= dateTo);
+    });
+  }, [meetings, onlyOpen, dateFrom, dateTo]);
 
   const loadData = async () => {
     setMessage("");
@@ -234,8 +240,8 @@ function MeetingManagePage() {
         </Button>
       </Stack>
 
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} sx={{ mb: 2 }}>
       <FormControlLabel
-        sx={{ mb: 1 }}
         control={
           <Switch
             checked={onlyOpen}
@@ -244,6 +250,10 @@ function MeetingManagePage() {
         }
         label={onlyOpen ? "모집중만 보기" : "전체 모임 보기"}
       />
+        <TextField type="date" label="시작일" size="small" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        <TextField type="date" label="종료일" size="small" value={dateTo} onChange={(e) => setDateTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        {(dateFrom || dateTo) && <Button size="small" onClick={() => { setDateFrom(""); setDateTo(""); }}>날짜 초기화</Button>}
+      </Stack>
 
       {message && (
         <Alert severity="error" sx={{ mb: 2 }}>

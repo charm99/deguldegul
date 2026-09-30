@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Box, CircularProgress, Typography } from "@mui/material";
 import { ensureCurrentAppVersion } from "../../services/appVersion";
 
 function AppVersionGuard({ children }) {
@@ -31,14 +30,9 @@ function AppVersionGuard({ children }) {
 
   if (!ready) {
     return (
-      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#fff" }}>
-        <Box sx={{ textAlign: "center" }}>
-          <CircularProgress size={30} />
-          <Typography color="text.secondary" sx={{ mt: 1.5, fontSize: 13 }}>
-            최신 버전을 확인하고 있습니다.
-          </Typography>
-        </Box>
-      </Box>
+      <div role="status" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#fff", color: "#777", fontFamily: "Pretendard, sans-serif", fontSize: 13 }}>
+        최신 버전을 확인하고 있습니다.
+      </div>
     );
   }
 

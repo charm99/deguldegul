@@ -48,6 +48,7 @@ function monthRange(month) {
 function meetingPoint(meetingType) {
   if (meetingType === "REG") return 3;
   if (meetingType === "FLS") return 2;
+  if (meetingType === "LGE") return 3;
   return 0;
 }
 
@@ -208,7 +209,7 @@ function AttendanceStatusPage() {
                     <Chip label={`+${meeting.point}점`} size="small" color="primary" />
                   </Stack>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {formatDateTime(meeting.meeting_dt)} · {meeting.meeting_tp === "REG" ? "정기모임" : "번개모임"} · {meeting.attendance_tp === "LAT" ? "지각" : "출석"}
+                    {formatDateTime(meeting.meeting_dt)} · {meeting.meeting_tp === "REG" ? "정기모임" : meeting.meeting_tp === "LGE" ? "리그전" : "번개모임"} · {meeting.attendance_tp === "LAT" ? "지각" : "출석"}
                   </Typography>
                 </Box>
               ))}

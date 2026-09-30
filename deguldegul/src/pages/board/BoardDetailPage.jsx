@@ -13,10 +13,12 @@ import {
   TextField,
   Divider,
   Dialog,
+  Chip,
 } from "@mui/material";
 import LinkIcon from "@mui/icons-material/Link";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { getBoardCategoryLabel } from "../../shared/constants/boardCategories";
 
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -191,6 +193,7 @@ function BoardDetailPage() {
       <>
         <Card sx={{ ...cardSx, mb: 1.25, textAlign: "left" }}>
           <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+            {board.board_tp === "FRI" && <Chip label={getBoardCategoryLabel(board.category)} size="small" sx={{ mb: 0.75 }} />}
             <Typography sx={{ color: "#25282d", fontSize: 17, lineHeight: 1.45, fontWeight: 900 }}>
               {board.title}
             </Typography>

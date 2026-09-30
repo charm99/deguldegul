@@ -9,9 +9,11 @@ import {
   Button,
   IconButton,
   Alert,
+  MenuItem,
 } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { BOARD_CATEGORIES } from "../../shared/constants/boardCategories";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { canManageNotice } from "../../shared/model/permissions";
@@ -33,6 +35,7 @@ function BoardWritePage() {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [category, setCategory] = useState("GEN");
   const [files, setFiles] = useState([]);
   const [message, setMessage] = useState("");
 
@@ -59,6 +62,7 @@ function BoardWritePage() {
         const { error } = await updateBoard(boardId, {
           title: title.trim(),
           content: content.trim(),
+          category: boardTp === "FRI" ? category : undefined,
         });
 
         if (error) throw error;
@@ -69,6 +73,7 @@ function BoardWritePage() {
 
       const { data, error } = await createBoard({
         boardTp,
+        category,
         title: title.trim(),
         content: content.trim(),
         writerId: profile.id,
@@ -101,6 +106,7 @@ function BoardWritePage() {
 
       setTitle(data.title);
       setContent(data.content);
+      setCategory(data.category || "GEN");
     });
 
     return () => {
@@ -157,6 +163,12 @@ function BoardWritePage() {
           size="small"
           sx={fieldSx}
         />
+
+        {boardTp === "FRI" && (
+          <TextField select label="카테고리" value={category} onChange={(e) => setCategory(e.target.value)} size="small" fullWidth sx={fieldSx}>
+            {BOARD_CATEGORIES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
+          </TextField>
+        )}
 
         <TextField
           label="내용"

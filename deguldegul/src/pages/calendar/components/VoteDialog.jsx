@@ -43,6 +43,10 @@ function VoteDialog({
             </Typography>
           </Box>
 
+          {meeting?.meeting_tp === "LGE" && (
+            <Typography variant="body2" color="primary">리그전은 관리자, 매니저, 스태프만 참여할 수 있습니다.</Typography>
+          )}
+
           <TextField
             select
             label="참석상태"

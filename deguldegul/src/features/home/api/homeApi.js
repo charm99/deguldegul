@@ -2,7 +2,7 @@ import { supabase } from "../../../services/supabase";
 
 export async function fetchHomeDashboard(userId) {
   const now = new Date().toISOString();
-  const [meetingResult, boardResult, scoreResult] = await Promise.all([
+  const [meetingResult, boardResult, scoreResult, userResult] = await Promise.all([
     supabase
       .from("degul_meeting")
       .select(`
@@ -25,11 +25,14 @@ export async function fetchHomeDashboard(userId) {
       .order("created_at", { ascending: false })
       .limit(12),
     userId
-      ? supabase.from("degul_score").select("score").eq("user_id", userId)
+      ? supabase.from("degul_score").select("score, meeting:meeting_id!inner(meeting_dt)").eq("user_id", userId)
       : Promise.resolve({ data: [], error: null }),
+    userId
+      ? supabase.from("degul_users").select("average_start_date").eq("id", userId).single()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const error = meetingResult.error || boardResult.error || scoreResult.error;
+  const error = meetingResult.error || boardResult.error || scoreResult.error || userResult.error;
   if (error) return { data: null, error };
 
   const meetings = meetingResult.data || [];
@@ -50,7 +53,8 @@ export async function fetchHomeDashboard(userId) {
   const attendanceByMeeting = Object.fromEntries(
     attendances.map((item) => [item.meeting_id, item])
   );
-  const scores = scoreResult.data || [];
+  const averageStartDate = userResult.data?.average_start_date || "2026-07-01";
+  const scores = (scoreResult.data || []).filter((item) => item.meeting?.meeting_dt?.slice(0, 10) >= averageStartDate);
   const gameCount = scores.length;
   const scoreValues = scores.map((item) => Number(item.score));
 

@@ -1,11 +1,12 @@
 import { supabase } from "./supabase";
 
-export async function getBoards(boardTp) {
+export async function getBoards(boardTp, category) {
   let query = supabase
     .from("degul_board")
     .select(`
       board_id,
       board_tp,
+      category,
       title,
       content,
       writer_id,
@@ -29,6 +30,10 @@ export async function getBoards(boardTp) {
     query = query.eq("board_tp", boardTp);
   }
 
+  if (boardTp === "FRI" && category) {
+    query = query.eq("category", category);
+  }
+
   const { data, error } = await query;
 
   return {
@@ -49,6 +54,7 @@ export async function getBoardDetail(boardId) {
     .select(`
       board_id,
       board_tp,
+      category,
       title,
       content,
       writer_id,
@@ -78,11 +84,12 @@ export async function increaseViewCount(boardId) {
   });
 }
 
-export async function createBoard({ boardTp, title, content, writerId }) {
+export async function createBoard({ boardTp, category, title, content, writerId }) {
   return await supabase
     .from("degul_board")
     .insert({
       board_tp: boardTp,
+      category: boardTp === "FRI" ? category : null,
       title,
       content,
       writer_id: writerId,
@@ -91,12 +98,13 @@ export async function createBoard({ boardTp, title, content, writerId }) {
     .single();
 }
 
-export async function updateBoard(boardId, { title, content }) {
+export async function updateBoard(boardId, { category, title, content }) {
   return await supabase
     .from("degul_board")
     .update({
       title,
       content,
+      ...(category ? { category } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("board_id", boardId);

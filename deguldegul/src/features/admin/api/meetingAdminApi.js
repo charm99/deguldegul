@@ -44,8 +44,8 @@ export const completeMeeting = (meetingId) =>
 
 export async function fetchMeetingParticipantAdminData(meetingId, canSeePhone = false) {
   const userColumns = canSeePhone
-    ? "id, name, nickname, phone_no, car_no"
-    : "id, name, nickname, car_no";
+    ? "id, name, nickname, phone_no, car_no, average_start_date"
+    : "id, name, nickname, car_no, average_start_date";
   const [userResult, attendanceResult, planResult, assignmentResult] =
     await Promise.all([
       supabase
@@ -88,19 +88,21 @@ export async function fetchMeetingParticipantAdminData(meetingId, canSeePhone = 
   if (attendeeIds.length > 0) {
     const scoreResult = await supabase
       .from("degul_score")
-      .select("user_id, score")
+      .select("user_id, score, meeting:meeting_id!inner(meeting_dt)")
       .in("user_id", attendeeIds);
     if (scoreResult.error) return { data: null, error: scoreResult.error };
     scores = scoreResult.data || [];
   }
 
+  const userMap = new Map((userResult.data || []).map((user) => [user.id, user]));
   const scoreMap = scores.reduce((map, item) => {
     const values = map.get(item.user_id) || [];
+    const user = userMap.get(item.user_id);
+    if (!user || item.meeting?.meeting_dt?.slice(0, 10) < (user.average_start_date || "2026-07-01")) return map;
     values.push(Number(item.score));
     map.set(item.user_id, values);
     return map;
   }, new Map());
-  const userMap = new Map((userResult.data || []).map((user) => [user.id, user]));
 
   const attendees = activeAttendances
     .map((attendance) => {

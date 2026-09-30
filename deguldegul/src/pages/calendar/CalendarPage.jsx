@@ -45,6 +45,7 @@ import ScoreDialog from "./components/ScoreDialog";
 import VoteDialog from "./components/VoteDialog";
 import BattleMatchDialog from "./components/BattleMatchDialog";
 import AttendanceListDialog from "./components/AttendanceListDialog";
+import EventTab from "./components/EventTab";
 
 import {
   WEEK_LABELS,
@@ -315,6 +316,11 @@ function CalendarPage() {
 
   const saveVote = async () => {
     if (!voteMeeting || !profile?.id) return;
+
+    if (voteMeeting.meeting_tp === "LGE" && !["ADM", "MGR", "STF"].includes(profile.role)) {
+      alert("리그전은 관리자, 매니저, 스태프만 참여할 수 있습니다.");
+      return;
+    }
 
     if (
       ["PND", "ABS"].includes(voteForm.attendance_tp) &&
@@ -607,7 +613,7 @@ function CalendarPage() {
     };
 
     if (tab === 1) {
-      return <EmptyState text="이벤트 기능은 추후 구현 예정입니다." />;
+      return <EventTab profile={profile} />;
     }
 
     return (
@@ -697,7 +703,7 @@ function CalendarPage() {
         </Alert>
       )}
 
-      <Box sx={{ bgcolor: "#fff", px: 2.5, pt: 1.8, pb: 2.5 }}>
+      {tab === 0 && <Box sx={{ bgcolor: "#fff", px: 2.5, pt: 1.8, pb: 2.5 }}>
       <Box
         sx={{
           position: "relative",
@@ -838,14 +844,14 @@ function CalendarPage() {
         })}
       </Box>
 
-      </Box>
+      </Box>}
 
       <Stack direction="row" spacing={2} sx={{ display: "none" }}>
         <Legend color="#1976d2" label="모임" />
         <Legend color="#43a047" label="점수입력" />
       </Stack>
 
-      <Box sx={{ mt: 1, bgcolor: "#fff" }}>{renderSelectedContent()}</Box>
+      <Box sx={{ mt: tab === 0 ? 1 : 0, bgcolor: "#fff" }}>{renderSelectedContent()}</Box>
 
       {tab === 0 && (
         <Fab

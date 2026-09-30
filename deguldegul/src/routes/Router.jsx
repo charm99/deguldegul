@@ -1,43 +1,42 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 import { ADMIN_ROLES, USER_MANAGER_ROLES } from "../shared/constants/roles";
 
-import LoginPage from "../pages/auth/LoginPage";
-import SignupPage from "../pages/auth/SignupPage";
-import AuthCallbackPage from "../pages/auth/AuthCallbackPage";
-import CompleteProfilePage from "../pages/auth/CompleteProfilePage";
-
-import HomePage from "../pages/home/HomePage";
-import CalendarPage from "../pages/calendar/CalendarPage";
-import RankingPage from "../pages/ranking/RankingPage";
-import MyRecordsPage from "../pages/ranking/MyRecordsPage";
-
-import ProfilePage from "../pages/profile/ProfilePage";
-import ProfileEditPage from "../pages/profile/ProfileEditPage";
-import PointHistoryPage from "../pages/profile/PointHistoryPage";
-import CapsuleHistoryPage from "../pages/profile/CapsuleHistoryPage";
-import TermsPage from "../pages/profile/TermsPage";
-import PrivacyPage from "../pages/profile/PrivacyPage";
-
-import AdminPage from "../pages/admin/AdminPage";
-import CenterManagePage from "../pages/admin/CenterManagePage";
-import UserManagePage from "../pages/admin/UserManagePage";
-import MeetingManagePage from "../pages/admin/MeetingManagePage";
-import BattleManagePage from "../pages/admin/BattleManagePage";
-import CapsuleManagePage from "../pages/admin/CapsuleManagePage";
-import AttendanceStatusPage from "../pages/admin/AttendanceStatusPage";
-import CapsulePage from "../pages/capsule/CapsulePage";
-
-import BoardPage from "../pages/board/BoardPage";
-import BoardWritePage from "../pages/board/BoardWritePage";
-import BoardDetailPage from "../pages/board/BoardDetailPage";
+const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
+const AppLayout = lazy(() => import("../layouts/AppLayout"));
+const SignupPage = lazy(() => import("../pages/auth/SignupPage"));
+const AuthCallbackPage = lazy(() => import("../pages/auth/AuthCallbackPage"));
+const CompleteProfilePage = lazy(() => import("../pages/auth/CompleteProfilePage"));
+const HomePage = lazy(() => import("../pages/home/HomePage"));
+const CalendarPage = lazy(() => import("../pages/calendar/CalendarPage"));
+const RankingPage = lazy(() => import("../pages/ranking/RankingPage"));
+const MyRecordsPage = lazy(() => import("../pages/ranking/MyRecordsPage"));
+const ProfilePage = lazy(() => import("../pages/profile/ProfilePage"));
+const ProfileEditPage = lazy(() => import("../pages/profile/ProfileEditPage"));
+const PointHistoryPage = lazy(() => import("../pages/profile/PointHistoryPage"));
+const CapsuleHistoryPage = lazy(() => import("../pages/profile/CapsuleHistoryPage"));
+const TermsPage = lazy(() => import("../pages/profile/TermsPage"));
+const PrivacyPage = lazy(() => import("../pages/profile/PrivacyPage"));
+const AdminPage = lazy(() => import("../pages/admin/AdminPage"));
+const CenterManagePage = lazy(() => import("../pages/admin/CenterManagePage"));
+const UserManagePage = lazy(() => import("../pages/admin/UserManagePage"));
+const MeetingManagePage = lazy(() => import("../pages/admin/MeetingManagePage"));
+const BattleManagePage = lazy(() => import("../pages/admin/BattleManagePage"));
+const CapsuleManagePage = lazy(() => import("../pages/admin/CapsuleManagePage"));
+const AttendanceStatusPage = lazy(() => import("../pages/admin/AttendanceStatusPage"));
+const AverageManagePage = lazy(() => import("../pages/admin/AverageManagePage"));
+const CapsulePage = lazy(() => import("../pages/capsule/CapsulePage"));
+const BoardPage = lazy(() => import("../pages/board/BoardPage"));
+const BoardWritePage = lazy(() => import("../pages/board/BoardWritePage"));
+const BoardDetailPage = lazy(() => import("../pages/board/BoardDetailPage"));
 
 function Router() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<RouteLoading />}>
       <Routes>
         {/* 비로그인 접근 가능 */}
         <Route path="/" element={<LoginPage />} />
@@ -72,6 +71,7 @@ function Router() {
               <Route path="/admin/meetings" element={<MeetingManagePage />} />
               <Route path="/admin/capsule" element={<CapsuleManagePage />} />
               <Route path="/admin/attendance-status" element={<AttendanceStatusPage />} />
+              <Route path="/admin/averages" element={<AverageManagePage />} />
             </Route>
 
             <Route element={<RoleRoute roles={USER_MANAGER_ROLES} />}>
@@ -81,8 +81,13 @@ function Router() {
           </Route>
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
+}
+
+function RouteLoading() {
+  return <div role="status" aria-label="화면 불러오는 중" style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "#777", fontFamily: "Pretendard, sans-serif" }}>불러오는 중...</div>;
 }
 
 export default Router;
