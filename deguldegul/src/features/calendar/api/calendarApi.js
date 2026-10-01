@@ -15,6 +15,7 @@ export const fetchCalendarMeetings = (start, end) =>
     .neq("status", "CNL")
     .gte("meeting_dt", start)
     .lt("meeting_dt", end)
+    .order("meeting_tp", { ascending: false })
     .order("meeting_dt", { ascending: true })
     .order("status", { ascending: false });
 
